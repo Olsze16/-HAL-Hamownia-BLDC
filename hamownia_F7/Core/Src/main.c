@@ -27,12 +27,13 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "arm_math.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+arm_rfft_instance_f32 S;
+arm_cfft_radix4_instance_f32 S_CFFT;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -47,7 +48,12 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+float32_t bufor_wejsciowy_pradu[512];
+float32_t bufor_wyjsciowy_pradu[1024];
+float32_t bufor_wyjsciowy_pradu_mag[512];
+float32_t buffer_output_mag_copy[256];
+float32_t maxvalue;
+uint32_t  maxvalueindex;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -93,13 +99,19 @@ int main(void)
   MX_USART3_UART_Init();
   MX_USB_OTG_FS_PCD_Init();
   /* USER CODE BEGIN 2 */
-
+  arm_rfft_init_f32(&S, &S_CFFT, 512, 0, 1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+
+	  arm_rfft_f32(&S, bufor_wejsciowy_pradu, bufor_wyjsciowy_pradu);
+
+	  arm_cmplx_mag_f32(bufor_wyjsciowy_pradu, bufor_wyjsciowy_pradu_mag, 512);
+
+	  arm_max_f32(bufor_wyjsciowy_pradu_mag, 512, &maxvalue, &maxvalueindex);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
