@@ -18,3 +18,5 @@ PINOUT STM F7
 
 - PWM DO ESC
  - PWM PE9 CN10
+ 
+ thx danza
