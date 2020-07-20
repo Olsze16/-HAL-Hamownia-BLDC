@@ -22,7 +22,7 @@
 #include "main.h"
 #include "adc.h"
 #include "dma.h"
-#include "eth.h"
+#include "lwip.h"
 #include "spi.h"
 #include "tim.h"
 #include "usart.h"
@@ -35,6 +35,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "arm_math.h"
+#include "stm32_udp_server.h"
 #define belka 100 // czas pomiaru dla belki
 #define startup 1500 // czas rozruchu
 #define czas_testu 200 // czas testu*10
@@ -96,6 +97,15 @@ uint16_t dl_kom; // czesc kamil
 uint32_t poprzedni_czas_belka;
 uint32_t poprzedni_czas_startup;
 uint32_t tachometr_czas;
+
+
+uint8_t stat_init,stat_start,stat_send;;
+volatile int a,b;
+
+
+uint8_t   buffer[UDP_RECEIVE_MSG_SIZE]={0};
+UDP_RECEIVE_t  rx_check = UDP_REVEICE_BUF_EMPTY;
+uint32_t    aliveNotify = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -263,8 +273,10 @@ void tachometr() // funkcja pomiaru prędkości obrotowej
 }
 void transmisja_uart() // funkcja wysyłania danych za pomocą UART
 {
-	dl_kom = sprintf(komunikat, "%d,%d,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f\n", ciag,rpm,temp,napiecie,prad,Ax,Ay,Az); // przygotowanie komunikatu w postaci pomiarów po przecinku
-	HAL_UART_Transmit_IT(&huart3, komunikat, dl_kom); // transmisja UART danych zawartych w tablicy kominukat
+//	dl_kom = sprintf(komunikat, "%d %d %0.2f %0.2f %0.2f %0.2f %0.2f %0.2f", ciag,rpm,temp,napiecie,prad,Ax,Ay,Az); // przygotowanie komunikatu w postaci pomiarów po przecinku
+	//HAL_UART_Transmit_IT(&huart3, komunikat, dl_kom); // transmisja UART danych zawartych w tablicy kominukat
+	dl_kom = sprintf(komunikat, "%0.2f %0.2f %d %0.2f %d ", prad,napiecie,rpm,temp,ciag);
+	serverUDPSendString(komunikat);
 }
 void tryb_reczny() // funkcja ręcznego załączania silnika
 {
@@ -335,7 +347,6 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_DMA_Init();
-  MX_ETH_Init();
   MX_USART3_UART_Init();
   MX_USB_OTG_FS_PCD_Init();
   MX_ADC1_Init();
@@ -343,6 +354,7 @@ int main(void)
   MX_TIM1_Init();
   MX_TIM3_Init();
   MX_TIM14_Init();
+  MX_LWIP_Init();
   /* USER CODE BEGIN 2 */
   arm_rfft_init_f32(&S, &S_CFFT, 512, 0, 1);
 
@@ -361,6 +373,12 @@ int main(void)
    poprzedni_czas_belka = HAL_GetTick(); //przejęcie czasu systemowego do zmiennej poprzedni_czas_belka
    poprzedni_czas_startup = HAL_GetTick(); // przejęcie czasu systemowego do zmiennej poprzedni_czas_startup
    tachometr_czas = HAL_GetTick();   // przejęcie czasu systemowego do zmiennej tachometr_czas
+
+
+   serverUDPInit();
+   serverUDPStart();
+
+   extern struct netif gnetif;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -376,6 +394,7 @@ int main(void)
 	  while(inicjalizacja ==0);
 
 //	  MPU6050_odczyt_akcel();
+
 	  adxl_odczyt_wartosci();
 	  if(fft==3)
 	  {
@@ -398,6 +417,32 @@ int main(void)
 	  }
 
       tryb_reczny(); //funkcja reczna załączania silnika
+
+  	rx_check = serverUDPWorks(buffer);
+
+      if(rx_check == UDP_RECEIVE_BUF_READY)
+      {
+          if(buffer[0] == '2')
+          {
+          	start=2;
+          }
+
+          if(buffer[0] == '0')
+          {
+            start=0;
+
+          }
+          if(buffer[0] == '1')
+          {
+          	start=1;
+          }
+
+          if(buffer[0] == '3')
+          {
+            fft=3;
+
+          }
+      }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
