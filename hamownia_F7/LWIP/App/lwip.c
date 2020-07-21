@@ -56,6 +56,7 @@ uint8_t GATEWAY_ADDRESS[4];
 void MX_LWIP_Init(void)
 {
   /* IP addresses initialization */
+
 	 IP_ADDRESS[0] = IP_ADDR0;
 	  IP_ADDRESS[1] = IP_ADDR1;
 	  IP_ADDRESS[2] = IP_ADDR2;

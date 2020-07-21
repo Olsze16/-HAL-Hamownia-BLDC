@@ -87,7 +87,7 @@ int16_t Accel_Z_RAW = 0;
 int16_t x,y,z;
 uint8_t dane_odebrane[6];
 uint32_t status=0,status2, rpm = 0, licznik=0, pomiary_napiecia =0, pomiary_temp = 0, pomiary_pradu = 0;
-uint32_t czas=0, odczyt_belki=0, ciag=0;
+uint32_t czas=0, odczyt_belki=0, ciag=0, tara=0;
 uint32_t pwm = 550;
 uint8_t inicjalizacja = 0;
 uint32_t start,fft;
@@ -97,7 +97,7 @@ uint16_t dl_kom; // czesc kamil
 uint32_t poprzedni_czas_belka;
 uint32_t poprzedni_czas_startup;
 uint32_t tachometr_czas;
-
+uint32_t analogowe[4]; // tablica dla odczytu z czujnika temperatury i napięcia
 
 uint8_t stat_init,stat_start,stat_send;;
 volatile int a,b;
@@ -106,6 +106,7 @@ volatile int a,b;
 uint8_t   buffer[UDP_RECEIVE_MSG_SIZE]={0};
 UDP_RECEIVE_t  rx_check = UDP_REVEICE_BUF_EMPTY;
 uint32_t    aliveNotify = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -137,7 +138,7 @@ void adxl_odczyt (uint8_t adres)
 }
 void adxl_inicjalizacja (void)
 {
-	adxl_zapisz (0x31, 0x01);  // data_format range= +- 4g
+	adxl_zapisz (0x31, 0x11);  // data_format range= +- 16g
 	adxl_zapisz (0x2d, 0x00);  // reset all bits
 	adxl_zapisz (0x2d, 0x08);  // power_cntl measure and wake up 8hz
 }
@@ -152,7 +153,22 @@ void adxl_odczyt_wartosci()
 	Ay = y*0.0078;
 	Az = z*0.0078;
 }
-uint32_t analogowe[4]; // tablica dla odczytu z czujnika temperatury i napięcia
+
+void inicjalizacja_belki()
+{
+	odczyt_belki = HX711_odczyt(&tensometr); // odczyt z przetwornika HX711
+	tara = odczyt_belki;
+	odczyt_belki =0;
+}
+void odczyt_ciagu()
+{
+	odczyt_belki = HX711_odczyt(&tensometr);  // odczyt z przetwornika HX711
+	ciag = (odczyt_belki-tara)/1000; // przeliczenie na gramy
+	if(ciag>250)
+	{
+		ciag=0;
+	}
+}
 
 void inicjalizacja_silnika() // funkcja inicjalizacji silnika
 {
@@ -178,11 +194,9 @@ void test_silnika() // funkcja automatycznego testu silnika
 	    czas++; // inkrementacja czasu
 	    }
 
+	    odczyt_ciagu();
 
-		odczyt_belki = HX711_odczyt(&tensometr);  // odczyt z przetwornika HX711
-		ciag = (odczyt_belki-161000)/1000;  // przeliczenie na gramy
-
-		transmisja_uart();  // funkcja wysyłania danych
+		transmisja_danych();  // funkcja wysyłania danych
 
 
 		if(czas==czas_testu)  // sprawdzenie czy czas testu minął
@@ -197,6 +211,39 @@ void test_silnika() // funkcja automatycznego testu silnika
      }
 
 }
+
+void tryb_reczny() // funkcja ręcznego załączania silnika
+{
+	if(start==2) // sprawdzenie warunku zalączenia funkcji ręcznej
+	{
+
+		__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1,620); // ustawienie timera na odpowiednie wypełnienie pwm
+
+	       if(HAL_GetTick() - poprzedni_czas_belka > belka) // sprawdzenie czy upłynął już czas belka = 100ms
+	       {
+		    poprzedni_czas_belka = HAL_GetTick();     // pobranie aktualnego czasu
+
+		    HAL_GPIO_TogglePin(GPIOB, LD2_Pin); // zmiana stanu diody led na płytce
+
+
+			odczyt_ciagu();
+
+			transmisja_danych();    // funkcja wysyłania danych
+
+
+	       }
+
+	 	   if(start==0)
+	 	   {
+	 		  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1,500); // wyłączenie silnika
+
+	 	   }
+
+	}
+
+
+}
+
 void odczyt_wartosci_anlg()  // funkcja odczytu wartosci analogowych z tablicy i ustawienie stanu (wykrywanie znacznika na rotorze)
 {
 	  if(analogowe[3]<1500)
@@ -271,45 +318,42 @@ void tachometr() // funkcja pomiaru prędkości obrotowej
 	    tachometr_czas = HAL_GetTick(); // pobranie aktualnego czasu
     }
 }
-void transmisja_uart() // funkcja wysyłania danych za pomocą UART
+void odbior_danych()
+{
+  	rx_check = serverUDPWorks(buffer);
+
+      if(rx_check == UDP_RECEIVE_BUF_READY)
+      {
+          if(buffer[0] == '2')
+          {
+          	start=2;
+          }
+
+          if(buffer[0] == '0')
+          {
+            start=0;
+
+          }
+          if(buffer[0] == '1')
+          {
+          	start=1;
+          }
+
+          if(buffer[0] == '3')
+          {
+            fft=3;
+
+          }
+      }
+}
+void transmisja_danych() // funkcja wysyłania danych za pomocą UART
 {
 //	dl_kom = sprintf(komunikat, "%d %d %0.2f %0.2f %0.2f %0.2f %0.2f %0.2f", ciag,rpm,temp,napiecie,prad,Ax,Ay,Az); // przygotowanie komunikatu w postaci pomiarów po przecinku
 	//HAL_UART_Transmit_IT(&huart3, komunikat, dl_kom); // transmisja UART danych zawartych w tablicy kominukat
-	dl_kom = sprintf(komunikat, "%0.2f %0.2f %d %0.2f %d ", prad,napiecie,rpm,temp,ciag);
+	dl_kom = sprintf(komunikat, "%0.2f %0.2f %d %0.2f %d      ", prad,napiecie,rpm,temp,ciag);
 	serverUDPSendString(komunikat);
 }
-void tryb_reczny() // funkcja ręcznego załączania silnika
-{
-	if(start==2) // sprawdzenie warunku zalączenia funkcji ręcznej
-	{
 
-		__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1,620); // ustawienie timera na odpowiednie wypełnienie pwm
-
-	       if(HAL_GetTick() - poprzedni_czas_belka > belka) // sprawdzenie czy upłynął już czas belka = 100ms
-	       {
-		    poprzedni_czas_belka = HAL_GetTick();     // pobranie aktualnego czasu
-
-		    HAL_GPIO_TogglePin(GPIOB, LD2_Pin); // zmiana stanu diody led na płytce
-
-
-			odczyt_belki = HX711_odczyt(&tensometr); // odczyt z przetwornika HX711
-			ciag = (odczyt_belki-161000)/1000; // przeliczenie na gramy
-
-			transmisja_uart();    // funkcja wysyłania danych
-
-
-	       }
-
-	 	   if(start==0)
-	 	   {
-	 		  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1,500); // wyłączenie silnika
-
-	 	   }
-
-	}
-
-
-}
 
 /* USER CODE END 0 */
 
@@ -379,6 +423,9 @@ int main(void)
    serverUDPStart();
 
    extern struct netif gnetif;
+
+   inicjalizacja_belki();
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -396,6 +443,16 @@ int main(void)
 //	  MPU6050_odczyt_akcel();
 
 	  adxl_odczyt_wartosci();
+
+	  if(start==1)    //sprawdzenie czy bit startu jest = 1
+	  {
+		  test_silnika(); //funkcja testu automatycznego silnika
+	  }
+
+      tryb_reczny(); //funkcja reczna załączania silnika
+
+      odbior_danych();
+
 	  if(fft==3)
 	  {
 		  arm_rfft_f32(&S, bufor_wejsciowy_pradu, bufor_wyjsciowy_pradu);
@@ -411,38 +468,7 @@ int main(void)
 		  fft=0;
 	  }
 
-	  if(start==1)    //sprawdzenie czy bit startu jest = 1
-	  {
-		  test_silnika(); //funkcja testu automatycznego silnika
-	  }
 
-      tryb_reczny(); //funkcja reczna załączania silnika
-
-  	rx_check = serverUDPWorks(buffer);
-
-      if(rx_check == UDP_RECEIVE_BUF_READY)
-      {
-          if(buffer[0] == '2')
-          {
-          	start=2;
-          }
-
-          if(buffer[0] == '0')
-          {
-            start=0;
-
-          }
-          if(buffer[0] == '1')
-          {
-          	start=1;
-          }
-
-          if(buffer[0] == '3')
-          {
-            fft=3;
-
-          }
-      }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
