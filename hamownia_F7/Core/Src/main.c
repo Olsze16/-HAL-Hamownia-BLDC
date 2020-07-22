@@ -79,7 +79,7 @@ float32_t buffer_output_mag_copy[256];
 float32_t maxvalue;
 uint32_t  maxvalueindex;
 int j = 0;
-float napiecie =0, temp = 0, prad = 0, suma_napiec=0, napiecie_przed = 0, suma_temp = 0, temp_przed = 0, suma_pradow = 0, prad_przed = 0;
+float napiecie =0, temp = 0, prad = 0, suma_napiec=0, napiecie_przed = 0, suma_temp = 0, temp_przed = 0, suma_pradow = 0, prad_przed = 0, prad_fft = 0;
 float Ax, Ay, Az;
 int16_t Accel_X_RAW = 0;
 int16_t Accel_Y_RAW = 0;
@@ -149,6 +149,10 @@ void adxl_odczyt_wartosci()
 	y = ((dane_odebrane[3]<<8)|dane_odebrane[2]);
 	z = ((dane_odebrane[5]<<8)|dane_odebrane[4]);
 
+
+}
+void przeliczanie_akcelerometru()
+{
 	Ax = x*0.0078;
 	Ay = y*0.0078;
 	Az = z*0.0078;
@@ -297,6 +301,7 @@ void pomiar_pradu()
 	prad_przed = analogowe[0]*3.3f / 4096.0f; //przeliczanie wartości analogowej
 	prad_przed = prad_przed*1000; // zamiana na mV
 	prad_przed = (73.3f*(prad_przed/3300))-35.71f; // zamiana na A wg. wzoru producenta
+	prad_fft = prad_przed;
 	suma_pradow += prad_przed; // sumowanie odczytów
 	pomiary_pradu++; // inkrementacja licznika ilości odczytów
 
@@ -563,7 +568,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // ogolna funkcja ob
 		if(j<512)
 		{
 			pomiar_pradu();
-			bufor_wejsciowy_pradu[j]=prad;
+			bufor_wejsciowy_pradu[j]=prad_fft;
 
 
 		}
@@ -578,6 +583,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // ogolna funkcja ob
 		odczyt_wartosci_anlg(); //odczytywanie wartosci analogowej z czujnika prędkości i zamiana na stan niski lub wysoki
 		pomiar_napiecia();  // pomiar napiecia zasilania
 		pomiar_temperatury();// pomiar temperatury silnika
+		przeliczanie_akcelerometru();
+
 
 	}
 
