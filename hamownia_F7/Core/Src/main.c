@@ -38,7 +38,7 @@
 #include "stm32_udp_server.h"
 #define belka 100 // czas pomiaru dla belki
 #define startup 1500 // czas rozruchu
-#define czas_testu 200 // czas testu*10
+#define czas_testu 200 // czas testu w ms *10
 #define max_pwm 730 // maksymalne wypełnienie pwm dla regulatora esc
 
 #define MPU6050_ADDR 0xD0
@@ -78,6 +78,9 @@ float32_t bufor_wyjsciowy_pradu_mag[512];
 float32_t buffer_output_mag_copy[256];
 float32_t maxvalue;
 uint32_t  maxvalueindex;
+
+float32_t tablica_pradu[100];
+
 int j = 0;
 float napiecie =0, temp = 0, prad = 0, suma_napiec=0, napiecie_przed = 0, suma_temp = 0, temp_przed = 0, suma_pradow = 0, prad_przed = 0, prad_fft = 0;
 float Ax, Ay, Az;
@@ -88,19 +91,18 @@ int16_t x,y,z;
 uint8_t dane_odebrane[6];
 uint32_t status=0,status2, rpm = 0, licznik=0, pomiary_napiecia =0, pomiary_temp = 0, pomiary_pradu = 0;
 uint32_t czas=0, odczyt_belki=0, ciag=0, tara=0;
-uint32_t pwm = 550;
+uint32_t pwm = 550,nastawa;
 uint8_t inicjalizacja = 0;
 uint32_t start,fft;
 uint8_t znak;
-uint8_t komunikat[80]; // czesc danielu
+uint8_t komunikat[80],test_pol[3]="OK "; // czesc danielu
 uint16_t dl_kom; // czesc kamil
 uint32_t poprzedni_czas_belka;
 uint32_t poprzedni_czas_startup;
 uint32_t tachometr_czas;
 uint32_t analogowe[4]; // tablica dla odczytu z czujnika temperatury i napięcia
 
-uint8_t stat_init,stat_start,stat_send;;
-volatile int a,b;
+uint8_t procent;
 
 
 uint8_t   buffer[UDP_RECEIVE_MSG_SIZE]={0};
@@ -182,6 +184,38 @@ void inicjalizacja_silnika() // funkcja inicjalizacji silnika
 	      __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1,500); //ustawienie timera 17 na wypelnienie 5% (min) dzieki czemu regulator esc zostaje zainicjalizowany
 	  }
 }
+void test_silnika_fft()
+{
+	   __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1,pwm); // załączenie pwm o zmiennym wypelnieniu inkrementowanym w obsłudze przerwania od timera 16
+
+    if(HAL_GetTick() - poprzedni_czas_belka > belka)  // sprawdzenie czy upłynął już czas belka = 100ms
+    {
+	    poprzedni_czas_belka = HAL_GetTick();  // pobranie aktualnego czasu
+	    HAL_GPIO_TogglePin(GPIOB, LD2_Pin); // zmiana stanu diody led na płytce
+
+	    if(czas<czas_testu) // sprawdzenie czy czas testu minął
+	    {
+	    czas++; // inkrementacja czasu
+	    }
+
+	    odczyt_ciagu();
+
+		transmisja_danych1();  // funkcja wysyłania danych
+
+
+		if(czas==czas_testu)  // sprawdzenie czy czas testu minął
+		{
+
+			start=0;  // ustawienie końcowe zmiennych
+			czas=0;
+
+		}
+
+
+
+  }
+
+}
 void test_silnika() // funkcja automatycznego testu silnika
 {
 
@@ -212,16 +246,17 @@ void test_silnika() // funkcja automatycznego testu silnika
 		}
 
 
+
      }
 
 }
 
 void tryb_reczny() // funkcja ręcznego załączania silnika
 {
-	if(start==2) // sprawdzenie warunku zalączenia funkcji ręcznej
-	{
 
-		__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1,620); // ustawienie timera na odpowiednie wypełnienie pwm
+	      predkosc_zadana();
+
+		__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1,nastawa); // ustawienie timera na odpowiednie wypełnienie pwm
 
 	       if(HAL_GetTick() - poprzedni_czas_belka > belka) // sprawdzenie czy upłynął już czas belka = 100ms
 	       {
@@ -234,16 +269,7 @@ void tryb_reczny() // funkcja ręcznego załączania silnika
 
 			transmisja_danych();    // funkcja wysyłania danych
 
-
 	       }
-
-	 	   if(start==0)
-	 	   {
-	 		  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1,500); // wyłączenie silnika
-
-	 	   }
-
-	}
 
 
 }
@@ -329,24 +355,30 @@ void odbior_danych()
 
       if(rx_check == UDP_RECEIVE_BUF_READY)
       {
+          if(buffer[0] == '0')
+          {
+          	start=0;
+          }
+
+          if(buffer[0] == '1')
+          {
+            start=1;
+
+          }
           if(buffer[0] == '2')
           {
           	start=2;
           }
 
-          if(buffer[0] == '0')
-          {
-            start=0;
-
-          }
-          if(buffer[0] == '1')
-          {
-          	start=1;
-          }
-
           if(buffer[0] == '3')
           {
-            fft=3;
+
+        	start=3;
+
+          }
+          if(buffer[0] == '4')
+          {
+            start=4;
 
           }
       }
@@ -357,6 +389,40 @@ void transmisja_danych() // funkcja wysyłania danych za pomocą UART
 	//HAL_UART_Transmit_IT(&huart3, komunikat, dl_kom); // transmisja UART danych zawartych w tablicy kominukat
 	dl_kom = sprintf(komunikat, "%0.2f %0.2f %d %0.2f %d      ", prad,napiecie,rpm,temp,ciag);
 	serverUDPSendString(komunikat);
+}
+
+void transmisja_danych1() // funkcja wysyłania danych za pomocą UART
+{
+//	dl_kom = sprintf(komunikat, "%d %d %0.2f %0.2f %0.2f %0.2f %0.2f %0.2f", ciag,rpm,temp,napiecie,prad,Ax,Ay,Az); // przygotowanie komunikatu w postaci pomiarów po przecinku
+	//HAL_UART_Transmit_IT(&huart3, komunikat, dl_kom); // transmisja UART danych zawartych w tablicy kominukat
+	dl_kom = sprintf(komunikat, "%0.2f %0.2f %d %0.2f %d      ", prad,napiecie,rpm,temp,ciag);
+	serverUDPSendString(komunikat);
+//	serverUDPSendString(tablica_pradu);
+}
+
+
+void test_polaczenia()
+{
+	serverUDPSendString(test_pol);
+	start=0;
+}
+void stop()
+{
+		__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1,500); // wyłączenie silnika
+		start=0;
+		czas=0;
+		pwm=550;
+}
+void predkosc_zadana()
+{
+	int a,b;
+	a=buffer[2];
+	b=buffer[3];
+	a=a-48;
+	b=b-48;
+	procent = (a*10)+b;
+	nastawa = (procent * 5)+500;
+
 }
 
 
@@ -447,30 +513,56 @@ int main(void)
 
 //	  MPU6050_odczyt_akcel();
 
+
 	  adxl_odczyt_wartosci();
+	  odbior_danych();
+
+	  if(start==0)
+	 	{
+		  stop();
+	 	}
+
 
 	  if(start==1)    //sprawdzenie czy bit startu jest = 1
 	  {
 		  test_silnika(); //funkcja testu automatycznego silnika
 	  }
 
-      tryb_reczny(); //funkcja reczna załączania silnika
 
-      odbior_danych();
-
-	  if(fft==3)
+	  if(start==2)    //sprawdzenie czy bit startu jest = 2
 	  {
+		  test_polaczenia(); //funkcja testu automatycznego silnika
+	  }
+
+
+	  if(start==3)    //sprawdzenie czy bit startu jest = 3
+	  {
+		  tryb_reczny(); //funkcja reczna załączania silnika
+	  }
+
+
+	  if(start==4)
+	  {
+		  test_silnika_fft();
+
 		  arm_rfft_f32(&S, bufor_wejsciowy_pradu, bufor_wyjsciowy_pradu);
 
 		  arm_cmplx_mag_f32(bufor_wyjsciowy_pradu, bufor_wyjsciowy_pradu_mag, 512);
 
 		  arm_max_f32(bufor_wyjsciowy_pradu_mag, 512, &maxvalue, &maxvalueindex);
 
+
 		  for(int i=0; i<512; ++i){
 		  	bufor_wyjsciowy_pradu_mag[i] = 100*bufor_wyjsciowy_pradu_mag[i]/maxvalue;
 		  }
 
-		  fft=0;
+		  for(int i=0; i<100; ++i){
+		  	tablica_pradu[i] = 2.45;
+		  }
+
+		//  serverUDPSendString(bufor_wyjsciowy_pradu_mag);
+
+
 	  }
 
 
@@ -545,7 +637,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // ogolna funkcja ob
 	{
 
 		{
-			if(start == 1 && pwm < max_pwm)   //warunek na zwiekszanie wypelnienia w pwm w teście automatycznym
+			if((start == 1 && pwm < max_pwm )||(start == 4 && pwm < max_pwm ))   //warunek na zwiekszanie wypelnienia w pwm w teście automatycznym
 			{
 			pwm+=2;
 
