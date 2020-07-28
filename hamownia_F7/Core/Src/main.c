@@ -79,10 +79,38 @@ float32_t buffer_output_mag_copy[256];
 float32_t maxvalue;
 uint32_t  maxvalueindex;
 
-float32_t tablica_pradu[100];
+float32_t bufor_wejsciowy_osx[512];
+float32_t bufor_wyjsciowy_osx[1024];
+float32_t bufor_wyjsciowy_osx_mag[512];
+float32_t buffer_output_mag_copy1[256];
+float32_t maxvalue1;
+uint32_t  maxvalueindex1;
+
+float32_t bufor_wejsciowy_osy[512];
+float32_t bufor_wyjsciowy_osy[1024];
+float32_t bufor_wyjsciowy_osy_mag[512];
+float32_t buffer_output_mag_copy2[256];
+float32_t maxvalue2;
+uint32_t  maxvalueindex2;
+
+float32_t bufor_wejsciowy_osz[512];
+float32_t bufor_wyjsciowy_osz[1024];
+float32_t bufor_wyjsciowy_osz_mag[512];
+float32_t buffer_output_mag_copy3[256];
+float32_t maxvalue3;
+uint32_t  maxvalueindex3;
+
+float32_t bufor_wejsciowy_napiecia[512];
+float32_t bufor_wyjsciowy_napiecia[1024];
+float32_t bufor_wyjsciowy_napiecia_mag[512];
+float32_t buffer_output_mag_copy4[256];
+float32_t maxvalue4;
+uint32_t  maxvalueindex4;
+
+uint8_t tablica_pradu[100] = "wieje chujem adsddd";
 
 int j = 0;
-float napiecie =0, temp = 0, prad = 0, suma_napiec=0, napiecie_przed = 0, suma_temp = 0, temp_przed = 0, suma_pradow = 0, prad_przed = 0, prad_fft = 0;
+float napiecie =0, temp = 0, prad = 0, suma_napiec=0, napiecie_przed = 0, napiecie_fft = 0, suma_temp = 0, temp_przed = 0, suma_pradow = 0, prad_przed = 0, prad_fft = 0;
 float Ax, Ay, Az;
 int16_t Accel_X_RAW = 0;
 int16_t Accel_Y_RAW = 0;
@@ -93,7 +121,7 @@ uint32_t status=0,status2, rpm = 0, licznik=0, pomiary_napiecia =0, pomiary_temp
 uint32_t czas=0, odczyt_belki=0, ciag=0, tara=0;
 uint32_t pwm = 550,nastawa;
 uint8_t inicjalizacja = 0;
-uint32_t start,fft;
+uint32_t start,dsp;
 uint8_t znak;
 uint8_t komunikat[80],test_pol[3]="OK "; // czesc danielu
 uint16_t dl_kom; // czesc kamil
@@ -200,7 +228,7 @@ void test_silnika_fft()
 
 	    odczyt_ciagu();
 
-		transmisja_danych1();  // funkcja wysyłania danych
+		transmisja_danych();  // funkcja wysyłania danych
 
 
 		if(czas==czas_testu)  // sprawdzenie czy czas testu minął
@@ -295,6 +323,7 @@ void pomiar_napiecia()  // funkcja pomiaru napiecia zasilania z dzielnika napię
 	napiecie_przed = analogowe[1]*3.3f / 4096.0f; // przeliczanie wartosci analogowej
 	napiecie_przed = napiecie_przed*1000;  // zamiana na mV
 	napiecie_przed = napiecie_przed/165; // skalowanie napięcia wg. współczynnika wyliczonego z dzielnika napięcia
+	napiecie_fft = napiecie_przed;
 	suma_napiec += napiecie_przed; // sumowanie odczytów
 	pomiary_napiecia++; // inkrementacja licznika ilości odczytów
 
@@ -381,13 +410,18 @@ void odbior_danych()
             start=4;
 
           }
+          if(buffer[0] == '8')
+          {
+            dsp=8;
+
+          }
       }
 }
 void transmisja_danych() // funkcja wysyłania danych za pomocą UART
 {
 //	dl_kom = sprintf(komunikat, "%d %d %0.2f %0.2f %0.2f %0.2f %0.2f %0.2f", ciag,rpm,temp,napiecie,prad,Ax,Ay,Az); // przygotowanie komunikatu w postaci pomiarów po przecinku
 	//HAL_UART_Transmit_IT(&huart3, komunikat, dl_kom); // transmisja UART danych zawartych w tablicy kominukat
-	dl_kom = sprintf(komunikat, "%0.2f %0.2f %d %0.2f %d      ", prad,napiecie,rpm,temp,ciag);
+    dl_kom = sprintf(komunikat, "%0.2f %0.2f %d %0.2f %d      ", prad,napiecie,rpm,temp,ciag);
 	serverUDPSendString(komunikat);
 }
 
@@ -395,9 +429,9 @@ void transmisja_danych1() // funkcja wysyłania danych za pomocą UART
 {
 //	dl_kom = sprintf(komunikat, "%d %d %0.2f %0.2f %0.2f %0.2f %0.2f %0.2f", ciag,rpm,temp,napiecie,prad,Ax,Ay,Az); // przygotowanie komunikatu w postaci pomiarów po przecinku
 	//HAL_UART_Transmit_IT(&huart3, komunikat, dl_kom); // transmisja UART danych zawartych w tablicy kominukat
-	dl_kom = sprintf(komunikat, "%0.2f %0.2f %d %0.2f %d      ", prad,napiecie,rpm,temp,ciag);
-	serverUDPSendString(komunikat);
-//	serverUDPSendString(tablica_pradu);
+//	dl_kom = sprintf(komunikat, "%0.2f %0.2f %d %0.2f %d      ", prad,napiecie,rpm,temp,ciag);
+//	serverUDPSendString(komunikat);
+	serverUDPSendString(tablica_pradu);
 }
 
 
@@ -497,6 +531,7 @@ int main(void)
 
    inicjalizacja_belki();
 
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -516,7 +551,13 @@ int main(void)
 
 	  adxl_odczyt_wartosci();
 	  odbior_danych();
+/*
+	  arm_rfft_f32(&S, bufor_wejsciowy_pradu, bufor_wyjsciowy_pradu);
 
+	  arm_cmplx_mag_f32(bufor_wyjsciowy_pradu, bufor_wyjsciowy_pradu_mag, 512);
+
+	  arm_max_f32(bufor_wyjsciowy_pradu_mag, 512, &maxvalue, &maxvalueindex);
+*/
 	  if(start==0)
 	 	{
 		  stop();
@@ -545,6 +586,12 @@ int main(void)
 	  {
 		  test_silnika_fft();
 
+
+	  }
+
+
+	  if(dsp==8)
+	 	{
 		  arm_rfft_f32(&S, bufor_wejsciowy_pradu, bufor_wyjsciowy_pradu);
 
 		  arm_cmplx_mag_f32(bufor_wyjsciowy_pradu, bufor_wyjsciowy_pradu_mag, 512);
@@ -556,14 +603,53 @@ int main(void)
 		  	bufor_wyjsciowy_pradu_mag[i] = 100*bufor_wyjsciowy_pradu_mag[i]/maxvalue;
 		  }
 
-		  for(int i=0; i<100; ++i){
-		  	tablica_pradu[i] = 2.45;
+
+		  arm_rfft_f32(&S, bufor_wejsciowy_napiecia, bufor_wyjsciowy_napiecia);
+
+		  arm_cmplx_mag_f32(bufor_wyjsciowy_napiecia, bufor_wyjsciowy_napiecia_mag, 512);
+
+		  arm_max_f32(bufor_wyjsciowy_napiecia_mag, 512, &maxvalue4, &maxvalueindex4);
+
+
+		  for(int i=0; i<512; ++i){
+		  	bufor_wyjsciowy_napiecia_mag[i] = 100*bufor_wyjsciowy_napiecia_mag[i]/maxvalue4;
 		  }
 
-		//  serverUDPSendString(bufor_wyjsciowy_pradu_mag);
+		  arm_rfft_f32(&S, bufor_wejsciowy_osx, bufor_wyjsciowy_osx);
+
+		  arm_cmplx_mag_f32(bufor_wyjsciowy_osx, bufor_wyjsciowy_osx_mag, 512);
+
+		  arm_max_f32(bufor_wyjsciowy_osx_mag, 512, &maxvalue1, &maxvalueindex1);
 
 
-	  }
+		  for(int i=0; i<512; ++i){
+		  	bufor_wyjsciowy_osx_mag[i] = 100*bufor_wyjsciowy_osx_mag[i]/maxvalue1;
+		  }
+
+		  arm_rfft_f32(&S, bufor_wejsciowy_osy, bufor_wyjsciowy_osy);
+
+		  arm_cmplx_mag_f32(bufor_wyjsciowy_osy, bufor_wyjsciowy_osy_mag, 512);
+
+		  arm_max_f32(bufor_wyjsciowy_osy_mag, 512, &maxvalue2, &maxvalueindex2);
+
+
+		  for(int i=0; i<512; ++i){
+		  	bufor_wyjsciowy_osy_mag[i] = 100*bufor_wyjsciowy_osy_mag[i]/maxvalue2;
+		  }
+		  arm_rfft_f32(&S, bufor_wejsciowy_osz, bufor_wyjsciowy_osz);
+
+		  arm_cmplx_mag_f32(bufor_wyjsciowy_osz, bufor_wyjsciowy_osz_mag, 512);
+
+		  arm_max_f32(bufor_wyjsciowy_osz_mag, 512, &maxvalue3, &maxvalueindex3);
+
+
+		  for(int i=0; i<512; ++i){
+		  	bufor_wyjsciowy_osz_mag[i] = 100*bufor_wyjsciowy_osz_mag[i]/maxvalue3;
+		  }
+		  	dsp=0;
+
+	 	}
+
 
 
     /* USER CODE END WHILE */
@@ -661,27 +747,44 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // ogolna funkcja ob
 		{
 			pomiar_pradu();
 			bufor_wejsciowy_pradu[j]=prad_fft;
+			pomiar_napiecia();
+			bufor_wejsciowy_napiecia[j]=napiecie_fft;
+			przeliczanie_akcelerometru();
+			bufor_wejsciowy_osx[j]=Ax;
+			bufor_wejsciowy_osy[j]=Ay;
+			bufor_wejsciowy_osz[j]=Az;
 
 
 		}
 		j++;
 		if(j==512)
 		{
+			  arm_rfft_f32(&S, bufor_wejsciowy_osx, bufor_wyjsciowy_osx);
+
+			  arm_cmplx_mag_f32(bufor_wyjsciowy_osx, bufor_wyjsciowy_osx_mag, 512);
+
+			  arm_max_f32(bufor_wyjsciowy_osx_mag, 512, &maxvalue1, &maxvalueindex1);
+
+
+			  for(int i=0; i<512; ++i){
+			  	bufor_wyjsciowy_osx_mag[i] = 100*bufor_wyjsciowy_osx_mag[i]/maxvalue1;
+			  }
+
 			j=0;
 
 		}
 
 		tachometr(); // pomiar predkosci obrotowej
 		odczyt_wartosci_anlg(); //odczytywanie wartosci analogowej z czujnika prędkości i zamiana na stan niski lub wysoki
-		pomiar_napiecia();  // pomiar napiecia zasilania
+//		pomiar_napiecia();  // pomiar napiecia zasilania
 		pomiar_temperatury();// pomiar temperatury silnika
-		przeliczanie_akcelerometru();
+//		przeliczanie_akcelerometru();
 
 
 	}
 
 }
-
+/*
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) //przerwanie od UART na odboiór danych
 {
 	if(huart -> Instance == USART3)  //sprawdzenie czy przerwanie pochodzi od uart3
@@ -711,7 +814,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) //przerwanie od UART na 
 	  HAL_UART_Receive_IT(&huart3, &znak, 1);
 
 	}
-}
+}*/
 /* USER CODE END 4 */
 
 /**

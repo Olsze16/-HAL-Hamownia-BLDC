@@ -75,11 +75,11 @@ extern "C" {
 /* @todo: We need a mechanism to prevent wasting memory in every pbuf
    (TCP vs. UDP, IPv4 vs. IPv6: UDP/IPv4 packets may waste up to 28 bytes) */
 
-#define PBUF_TRANSPORT_HLEN 20
+#define PBUF_TRANSPORT_HLEN 150
 #if LWIP_IPV6
-#define PBUF_IP_HLEN        40
+#define PBUF_IP_HLEN        150
 #else
-#define PBUF_IP_HLEN        20
+#define PBUF_IP_HLEN        150
 #endif
 
 /**
