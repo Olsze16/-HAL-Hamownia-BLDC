@@ -107,11 +107,12 @@ float32_t buffer_output_mag_copy4[256];
 float32_t maxvalue4;
 uint32_t  maxvalueindex4;
 
-uint8_t tablica_pradu[100] = "wieje chujem adsddd";
+
 
 int j = 0;
 float napiecie =0, temp = 0, prad = 0, suma_napiec=0, napiecie_przed = 0, napiecie_fft = 0, suma_temp = 0, temp_przed = 0, suma_pradow = 0, prad_przed = 0, prad_fft = 0;
 float Ax, Ay, Az;
+float pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, pojedynczy_fft_prad, pojedynczy_fft_napiecie;
 int16_t Accel_X_RAW = 0;
 int16_t Accel_Y_RAW = 0;
 int16_t Accel_Z_RAW = 0;
@@ -120,10 +121,10 @@ uint8_t dane_odebrane[6];
 uint32_t status=0,status2, rpm = 0, licznik=0, pomiary_napiecia =0, pomiary_temp = 0, pomiary_pradu = 0;
 uint32_t czas=0, odczyt_belki=0, ciag=0, tara=0;
 uint32_t pwm = 550,nastawa;
-uint8_t inicjalizacja = 0;
+uint8_t inicjalizacja = 0, wyslij = 0;
 uint32_t start,dsp;
 uint8_t znak;
-uint8_t komunikat[80],test_pol[3]="OK "; // czesc danielu
+uint8_t komunikat[80],test_pol[3]="OK ", wiadomosc[80]; // czesc danielu
 uint16_t dl_kom; // czesc kamil
 uint32_t poprzedni_czas_belka;
 uint32_t poprzedni_czas_startup;
@@ -219,16 +220,9 @@ void test_silnika_fft()
     if(HAL_GetTick() - poprzedni_czas_belka > belka)  // sprawdzenie czy upłynął już czas belka = 100ms
     {
 	    poprzedni_czas_belka = HAL_GetTick();  // pobranie aktualnego czasu
-	    HAL_GPIO_TogglePin(GPIOB, LD2_Pin); // zmiana stanu diody led na płytce
-
-	    if(czas<czas_testu) // sprawdzenie czy czas testu minął
-	    {
-	    czas++; // inkrementacja czasu
-	    }
 
 	    odczyt_ciagu();
 
-		transmisja_danych();  // funkcja wysyłania danych
 
 
 		if(czas==czas_testu)  // sprawdzenie czy czas testu minął
@@ -253,12 +247,7 @@ void test_silnika() // funkcja automatycznego testu silnika
        if(HAL_GetTick() - poprzedni_czas_belka > belka)  // sprawdzenie czy upłynął już czas belka = 100ms
        {
 	    poprzedni_czas_belka = HAL_GetTick();  // pobranie aktualnego czasu
-	    HAL_GPIO_TogglePin(GPIOB, LD2_Pin); // zmiana stanu diody led na płytce
 
-	    if(czas<czas_testu) // sprawdzenie czy czas testu minął
-	    {
-	    czas++; // inkrementacja czasu
-	    }
 
 	    odczyt_ciagu();
 
@@ -425,15 +414,6 @@ void transmisja_danych() // funkcja wysyłania danych za pomocą UART
 	serverUDPSendString(komunikat);
 }
 
-void transmisja_danych1() // funkcja wysyłania danych za pomocą UART
-{
-//	dl_kom = sprintf(komunikat, "%d %d %0.2f %0.2f %0.2f %0.2f %0.2f %0.2f", ciag,rpm,temp,napiecie,prad,Ax,Ay,Az); // przygotowanie komunikatu w postaci pomiarów po przecinku
-	//HAL_UART_Transmit_IT(&huart3, komunikat, dl_kom); // transmisja UART danych zawartych w tablicy kominukat
-//	dl_kom = sprintf(komunikat, "%0.2f %0.2f %d %0.2f %d      ", prad,napiecie,rpm,temp,ciag);
-//	serverUDPSendString(komunikat);
-	serverUDPSendString(tablica_pradu);
-}
-
 
 void test_polaczenia()
 {
@@ -457,6 +437,17 @@ void predkosc_zadana()
 	procent = (a*10)+b;
 	nastawa = (procent * 5)+500;
 
+}
+
+void odmierzanie_czasu_testu()
+{
+	if(start==1||start==4)
+	{
+      if(czas<czas_testu) // sprawdzenie czy czas testu minął
+       {
+       czas++; // inkrementacja czasu
+       }
+	}
 }
 
 
@@ -589,68 +580,23 @@ int main(void)
 
 	  }
 
+	  if(wyslij==1)
+	  {
+		  for(int t=1; t<256; t++)
+		  {
 
-	  if(dsp==8)
-	 	{
-		  arm_rfft_f32(&S, bufor_wejsciowy_pradu, bufor_wyjsciowy_pradu);
+			  pojedynczy_fft_osx = bufor_wyjsciowy_osx_mag[t];
+			  pojedynczy_fft_osy = bufor_wyjsciowy_osy_mag[t];
+			  pojedynczy_fft_osz = bufor_wyjsciowy_osz_mag[t];
+			  pojedynczy_fft_prad = bufor_wyjsciowy_pradu_mag[t];
+			  pojedynczy_fft_napiecie = bufor_wyjsciowy_napiecia_mag[t];
+			  sprintf(wiadomosc, "%0.8f %0.8f %0.8f %0.8f %0.8f %d ", pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, pojedynczy_fft_napiecie, pojedynczy_fft_prad, t);
+			  serverUDPSendString(wiadomosc);
 
-		  arm_cmplx_mag_f32(bufor_wyjsciowy_pradu, bufor_wyjsciowy_pradu_mag, 512);
-
-		  arm_max_f32(bufor_wyjsciowy_pradu_mag, 512, &maxvalue, &maxvalueindex);
-
-
-		  for(int i=0; i<512; ++i){
-		  	bufor_wyjsciowy_pradu_mag[i] = 100*bufor_wyjsciowy_pradu_mag[i]/maxvalue;
 		  }
+		  wyslij=0;
 
-
-		  arm_rfft_f32(&S, bufor_wejsciowy_napiecia, bufor_wyjsciowy_napiecia);
-
-		  arm_cmplx_mag_f32(bufor_wyjsciowy_napiecia, bufor_wyjsciowy_napiecia_mag, 512);
-
-		  arm_max_f32(bufor_wyjsciowy_napiecia_mag, 512, &maxvalue4, &maxvalueindex4);
-
-
-		  for(int i=0; i<512; ++i){
-		  	bufor_wyjsciowy_napiecia_mag[i] = 100*bufor_wyjsciowy_napiecia_mag[i]/maxvalue4;
-		  }
-
-		  arm_rfft_f32(&S, bufor_wejsciowy_osx, bufor_wyjsciowy_osx);
-
-		  arm_cmplx_mag_f32(bufor_wyjsciowy_osx, bufor_wyjsciowy_osx_mag, 512);
-
-		  arm_max_f32(bufor_wyjsciowy_osx_mag, 512, &maxvalue1, &maxvalueindex1);
-
-
-		  for(int i=0; i<512; ++i){
-		  	bufor_wyjsciowy_osx_mag[i] = 100*bufor_wyjsciowy_osx_mag[i]/maxvalue1;
-		  }
-
-		  arm_rfft_f32(&S, bufor_wejsciowy_osy, bufor_wyjsciowy_osy);
-
-		  arm_cmplx_mag_f32(bufor_wyjsciowy_osy, bufor_wyjsciowy_osy_mag, 512);
-
-		  arm_max_f32(bufor_wyjsciowy_osy_mag, 512, &maxvalue2, &maxvalueindex2);
-
-
-		  for(int i=0; i<512; ++i){
-		  	bufor_wyjsciowy_osy_mag[i] = 100*bufor_wyjsciowy_osy_mag[i]/maxvalue2;
-		  }
-		  arm_rfft_f32(&S, bufor_wejsciowy_osz, bufor_wyjsciowy_osz);
-
-		  arm_cmplx_mag_f32(bufor_wyjsciowy_osz, bufor_wyjsciowy_osz_mag, 512);
-
-		  arm_max_f32(bufor_wyjsciowy_osz_mag, 512, &maxvalue3, &maxvalueindex3);
-
-
-		  for(int i=0; i<512; ++i){
-		  	bufor_wyjsciowy_osz_mag[i] = 100*bufor_wyjsciowy_osz_mag[i]/maxvalue3;
-		  }
-		  	dsp=0;
-
-	 	}
-
-
+	  }
 
     /* USER CODE END WHILE */
 
@@ -722,7 +668,13 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // ogolna funkcja ob
 	if(htim->Instance == TIM3) //sprawdzenie czy przerwanie pochodzi od timera 16
 	{
 
-		{
+		odmierzanie_czasu_testu();
+
+		    if(start==1||start==4)
+		    {
+		    HAL_GPIO_TogglePin(GPIOB, LD2_Pin); // zmiana stanu diody led na płytce
+		    }
+
 			if((start == 1 && pwm < max_pwm )||(start == 4 && pwm < max_pwm ))   //warunek na zwiekszanie wypelnienia w pwm w teście automatycznym
 			{
 			pwm+=2;
@@ -736,7 +688,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // ogolna funkcja ob
 
 			}
 
-		}
+
 
 	}
 	if(htim->Instance == TIM14) //sprawdzenie czy przerwanie pochodzi od timera 2
@@ -759,6 +711,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // ogolna funkcja ob
 		j++;
 		if(j==512)
 		{
+			if(start==4)
+			{
 			  arm_rfft_f32(&S, bufor_wejsciowy_osx, bufor_wyjsciowy_osx);
 
 			  arm_cmplx_mag_f32(bufor_wyjsciowy_osx, bufor_wyjsciowy_osx_mag, 512);
@@ -769,6 +723,54 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // ogolna funkcja ob
 			  for(int i=0; i<512; ++i){
 			  	bufor_wyjsciowy_osx_mag[i] = 100*bufor_wyjsciowy_osx_mag[i]/maxvalue1;
 			  }
+
+			  arm_rfft_f32(&S, bufor_wejsciowy_osy, bufor_wyjsciowy_osy);
+
+			  arm_cmplx_mag_f32(bufor_wyjsciowy_osy, bufor_wyjsciowy_osy_mag, 512);
+
+			  arm_max_f32(bufor_wyjsciowy_osy_mag, 512, &maxvalue2, &maxvalueindex2);
+
+
+			  for(int i=0; i<512; ++i){
+			  	bufor_wyjsciowy_osy_mag[i] = 100*bufor_wyjsciowy_osy_mag[i]/maxvalue2;
+			  }
+
+			  arm_rfft_f32(&S, bufor_wejsciowy_osz, bufor_wyjsciowy_osz);
+
+			  arm_cmplx_mag_f32(bufor_wyjsciowy_osz, bufor_wyjsciowy_osz_mag, 512);
+
+			  arm_max_f32(bufor_wyjsciowy_osz_mag, 512, &maxvalue3, &maxvalueindex3);
+
+
+			  for(int i=0; i<512; ++i){
+			  	bufor_wyjsciowy_osz_mag[i] = 100*bufor_wyjsciowy_osz_mag[i]/maxvalue3;
+			  }
+
+			  arm_rfft_f32(&S, bufor_wejsciowy_pradu, bufor_wyjsciowy_pradu);
+
+			  arm_cmplx_mag_f32(bufor_wyjsciowy_pradu, bufor_wyjsciowy_pradu_mag, 512);
+
+			  arm_max_f32(bufor_wyjsciowy_pradu_mag, 512, &maxvalue, &maxvalueindex);
+
+
+			  for(int i=0; i<512; ++i){
+			  	bufor_wyjsciowy_pradu_mag[i] = 100*bufor_wyjsciowy_pradu_mag[i]/maxvalue;
+			  }
+
+
+			  arm_rfft_f32(&S, bufor_wejsciowy_napiecia, bufor_wyjsciowy_napiecia);
+
+			  arm_cmplx_mag_f32(bufor_wyjsciowy_napiecia, bufor_wyjsciowy_napiecia_mag, 512);
+
+			  arm_max_f32(bufor_wyjsciowy_napiecia_mag, 512, &maxvalue4, &maxvalueindex4);
+
+
+			  for(int i=0; i<512; ++i){
+			  	bufor_wyjsciowy_napiecia_mag[i] = 100*bufor_wyjsciowy_napiecia_mag[i]/maxvalue4;
+			  }
+
+			  wyslij = 1;
+			}
 
 			j=0;
 
