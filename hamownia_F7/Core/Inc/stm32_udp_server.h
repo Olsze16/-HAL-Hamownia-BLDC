@@ -56,7 +56,7 @@ extern struct pbuf *ppp;
 //--------------------------------------------------------------
 /* UDP port number */
 #define  SERVER_UDP_PORT      7
-#define  CLIENT_USP_PORT      49695   //58537
+#define  CLIENT_USP_PORT      58133   //58537
 
 //--------------------------------------------------------------
 /* Max size of buffer */

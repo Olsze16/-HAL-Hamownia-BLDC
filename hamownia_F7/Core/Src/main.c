@@ -124,7 +124,7 @@ uint32_t pwm = 550,nastawa;
 uint8_t inicjalizacja = 0, wyslij = 0;
 uint32_t start,dsp;
 uint8_t znak;
-uint8_t komunikat[80],test_pol[3]="OK ", wiadomosc[80]; // czesc danielu
+uint8_t komunikat[80],test_pol[3]="OK ", wiadomosc[100]; // czesc danielu
 uint16_t dl_kom; // czesc kamil
 uint32_t poprzedni_czas_belka;
 uint32_t poprzedni_czas_startup;
@@ -184,9 +184,9 @@ void adxl_odczyt_wartosci()
 }
 void przeliczanie_akcelerometru()
 {
-	Ax = x*0.0078;
-	Ay = y*0.0078;
-	Az = z*0.0078;
+	Ax = x*0.0321;
+	Ay = y*0.0321;
+	Az = z*0.0321;
 }
 
 void inicjalizacja_belki()
@@ -590,7 +590,7 @@ int main(void)
 			  pojedynczy_fft_osz = bufor_wyjsciowy_osz_mag[t];
 			  pojedynczy_fft_prad = bufor_wyjsciowy_pradu_mag[t];
 			  pojedynczy_fft_napiecie = bufor_wyjsciowy_napiecia_mag[t];
-			  sprintf(wiadomosc, "%0.8f %0.8f %0.8f %0.8f %0.8f %d ", pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, pojedynczy_fft_napiecie, pojedynczy_fft_prad, t);
+			  sprintf(wiadomosc, "%0.2f %0.2f %d %0.2f %d %0.8f %0.8f %0.8f %0.8f %0.8f %d ",prad,napiecie,rpm,temp,ciag, pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, pojedynczy_fft_napiecie, pojedynczy_fft_prad, t);
 			  serverUDPSendString(wiadomosc);
 
 		  }
