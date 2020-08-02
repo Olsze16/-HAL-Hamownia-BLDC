@@ -132,7 +132,8 @@ uint32_t tachometr_czas;
 uint32_t wysylanie_czas;
 uint32_t analogowe[4]; // tablica dla odczytu z czujnika temperatury i napięcia
 
-uint8_t procent, t=1;
+uint8_t procent,start_sampli = 0;
+uint16_t t=1;
 
 
 uint8_t   buffer[UDP_RECEIVE_MSG_SIZE]={0};
@@ -233,6 +234,7 @@ void test_silnika_fft()
 			start=0;  // ustawienie końcowe zmiennych
 			czas=0;
 
+
 		}
 
 
@@ -261,6 +263,7 @@ void test_silnika() // funkcja automatycznego testu silnika
 
 			start=0;  // ustawienie końcowe zmiennych
 			czas=0;
+
 
 		}
 
@@ -445,6 +448,7 @@ void odmierzanie_czasu_testu()
 {
 	if(start==1||start==4)
 	{
+
       if(czas<czas_testu) // sprawdzenie czy czas testu minął
        {
        czas++; // inkrementacja czasu
@@ -743,7 +747,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // ogolna funkcja ob
 		  if(wyslij==1)
 		  {
 
-			  if(t<256)
+			  if(t<257)
 			  {
 				  odbior_danych();
 				  pojedynczy_fft_osx = bufor_wyjsciowy_osx_mag[t];
@@ -753,11 +757,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // ogolna funkcja ob
 				  pojedynczy_fft_napiecie = bufor_wyjsciowy_napiecia_mag[t];
 	//			  sprintf(wiadomosc, "%0.2f %0.2f %d %0.2f %d %0.6f %0.6f %0.6f %d ",prad,napiecie,rpm,temp,ciag, pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, t);
 	//			  sprintf(wiadomosc, "%0.2f %0.2f %d %0.2f %d %0.6f %0.6f %0.6f %0.6f %0.6f %d ",prad,napiecie,rpm,temp,ciag, pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, pojedynczy_fft_napiecie, pojedynczy_fft_prad, t);
-				  sprintf(wiadomosc, "%0.8f %0.8f %0.8f %d    ",pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, t);
+				  sprintf(wiadomosc, "%0.6f %0.6f %0.6f %0.6f %0.6f %d    ",pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, pojedynczy_fft_napiecie, pojedynczy_fft_prad, t);
 				  serverUDPSendString(wiadomosc);
 				  t++;
 			  }
-			  if(t==255)
+			  if(t==256)
 			  {
 				  t=1;
 				  wyslij=0;
@@ -847,9 +851,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // ogolna funkcja ob
 			  wyslij = 1;
 			}
 
-			j=0;
 
+			j=0;
 		}
+
 
 		tachometr(); // pomiar predkosci obrotowej
 		odczyt_wartosci_anlg(); //odczytywanie wartosci analogowej z czujnika prędkości i zamiana na stan niski lub wysoki
