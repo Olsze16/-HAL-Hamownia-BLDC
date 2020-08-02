@@ -129,9 +129,10 @@ uint16_t dl_kom; // czesc kamil
 uint32_t poprzedni_czas_belka;
 uint32_t poprzedni_czas_startup;
 uint32_t tachometr_czas;
+uint32_t wysylanie_czas;
 uint32_t analogowe[4]; // tablica dla odczytu z czujnika temperatury i napięcia
 
-uint8_t procent;
+uint8_t procent, t=1;
 
 
 uint8_t   buffer[UDP_RECEIVE_MSG_SIZE]={0};
@@ -495,6 +496,7 @@ int main(void)
   MX_TIM1_Init();
   MX_TIM3_Init();
   MX_TIM14_Init();
+  MX_TIM4_Init();
   MX_LWIP_Init();
   /* USER CODE BEGIN 2 */
   arm_rfft_init_f32(&S, &S_CFFT, 512, 0, 1);
@@ -504,6 +506,7 @@ int main(void)
    adxl_inicjalizacja();
 
    HAL_TIM_Base_Start_IT(&htim3);  // start przerwań od timera 3
+   HAL_TIM_Base_Start_IT(&htim4);  // start przerwań od timera 14
    HAL_TIM_Base_Start_IT(&htim14);  // start przerwań od timera 14
    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1); // start pwm od timera 17
    HAL_UART_Receive_IT(&huart3, &znak, 1); // aktywacja przerwania od odbioru jednego znaku
@@ -514,6 +517,7 @@ int main(void)
    poprzedni_czas_belka = HAL_GetTick(); //przejęcie czasu systemowego do zmiennej poprzedni_czas_belka
    poprzedni_czas_startup = HAL_GetTick(); // przejęcie czasu systemowego do zmiennej poprzedni_czas_startup
    tachometr_czas = HAL_GetTick();   // przejęcie czasu systemowego do zmiennej tachometr_czas
+   wysylanie_czas = HAL_GetTick();
 
 
    serverUDPInit();
@@ -580,7 +584,39 @@ int main(void)
 
 
 	  }
+/*
+      if(HAL_GetTick() - wysylanie_czas > 1) // sprawdzenie czy upłynął już czas belka = 100ms
+      {
+	    wysylanie_czas = HAL_GetTick();     // pobranie aktualnego czasu
 
+		  if(wyslij==1)
+		  {
+
+			  if(t<256)
+			  {
+				  odbior_danych();
+				  pojedynczy_fft_osx = bufor_wyjsciowy_osx_mag[t];
+				  pojedynczy_fft_osy = bufor_wyjsciowy_osy_mag[t];
+				  pojedynczy_fft_osz = bufor_wyjsciowy_osz_mag[t];
+				  pojedynczy_fft_prad = bufor_wyjsciowy_pradu_mag[t];
+				  pojedynczy_fft_napiecie = bufor_wyjsciowy_napiecia_mag[t];
+	//			  sprintf(wiadomosc, "%0.2f %0.2f %d %0.2f %d %0.6f %0.6f %0.6f %d ",prad,napiecie,rpm,temp,ciag, pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, t);
+	//			  sprintf(wiadomosc, "%0.2f %0.2f %d %0.2f %d %0.6f %0.6f %0.6f %0.6f %0.6f %d ",prad,napiecie,rpm,temp,ciag, pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, pojedynczy_fft_napiecie, pojedynczy_fft_prad, t);
+				  sprintf(wiadomosc, "%0.8f %0.8f %0.8f %d ",pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, t);
+				  serverUDPSendString(wiadomosc);
+				  t++;
+			  }
+			  if(t==255)
+			  {
+				  t=1;
+				  wyslij=0;
+			  }
+
+		  }
+
+      }
+      */
+/*
 	  if(wyslij==1)
 	  {
 		  for(int t=1; t<256; t++)
@@ -591,14 +627,15 @@ int main(void)
 			  pojedynczy_fft_osz = bufor_wyjsciowy_osz_mag[t];
 			  pojedynczy_fft_prad = bufor_wyjsciowy_pradu_mag[t];
 			  pojedynczy_fft_napiecie = bufor_wyjsciowy_napiecia_mag[t];
-//			  sprintf(wiadomosc, "%0.6f %0.6f %0.6f %0.6f %0.6f %d ",pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, pojedynczy_fft_napiecie, pojedynczy_fft_prad, t);
+//			  sprintf(wiadomosc, "%0.2f %0.2f %d %0.2f %d %0.6f %0.6f %0.6f %d ",prad,napiecie,rpm,temp,ciag, pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, t);
+//			  sprintf(wiadomosc, "%0.2f %0.2f %d %0.2f %d %0.6f %0.6f %0.6f %0.6f %0.6f %d ",prad,napiecie,rpm,temp,ciag, pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, pojedynczy_fft_napiecie, pojedynczy_fft_prad, t);
 			  sprintf(wiadomosc, "%0.8f %0.8f %0.8f %d ",pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, t);
 			  serverUDPSendString(wiadomosc);
 
 		  }
 		  wyslij=0;
 
-	  }
+	  } */
 
     /* USER CODE END WHILE */
 
@@ -693,9 +730,45 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // ogolna funkcja ob
 
 
 	}
+	if(htim->Instance == TIM4) //sprawdzenie czy przerwanie pochodzi od timera 2
+	{
+/*
+		if(start==4)
+		{
+		  odbior_danych();
+		  sprintf(wiadomosc, "chuj");
+		  serverUDPSendString(wiadomosc);
+		}
+		*/
+		  if(wyslij==1)
+		  {
+
+			  if(t<256)
+			  {
+				  odbior_danych();
+				  pojedynczy_fft_osx = bufor_wyjsciowy_osx_mag[t];
+				  pojedynczy_fft_osy = bufor_wyjsciowy_osy_mag[t];
+				  pojedynczy_fft_osz = bufor_wyjsciowy_osz_mag[t];
+				  pojedynczy_fft_prad = bufor_wyjsciowy_pradu_mag[t];
+				  pojedynczy_fft_napiecie = bufor_wyjsciowy_napiecia_mag[t];
+	//			  sprintf(wiadomosc, "%0.2f %0.2f %d %0.2f %d %0.6f %0.6f %0.6f %d ",prad,napiecie,rpm,temp,ciag, pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, t);
+	//			  sprintf(wiadomosc, "%0.2f %0.2f %d %0.2f %d %0.6f %0.6f %0.6f %0.6f %0.6f %d ",prad,napiecie,rpm,temp,ciag, pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, pojedynczy_fft_napiecie, pojedynczy_fft_prad, t);
+				  sprintf(wiadomosc, "%0.8f %0.8f %0.8f %d    ",pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, t);
+				  serverUDPSendString(wiadomosc);
+				  t++;
+			  }
+			  if(t==255)
+			  {
+				  t=1;
+				  wyslij=0;
+			  }
+		  }
+
+
+	}
+
 	if(htim->Instance == TIM14) //sprawdzenie czy przerwanie pochodzi od timera 2
 	{
-
 
 		if(j<512)
 		{
