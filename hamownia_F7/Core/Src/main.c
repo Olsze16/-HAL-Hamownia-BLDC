@@ -591,8 +591,8 @@ int main(void)
 			  pojedynczy_fft_osz = bufor_wyjsciowy_osz_mag[t];
 			  pojedynczy_fft_prad = bufor_wyjsciowy_pradu_mag[t];
 			  pojedynczy_fft_napiecie = bufor_wyjsciowy_napiecia_mag[t];
-			  sprintf(wiadomosc, "%0.2f %0.2f %d %0.2f %d %0.6f %0.6f %0.6f %0.6f %0.6f %d ",prad,napiecie,rpm,temp,ciag, pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, pojedynczy_fft_napiecie, pojedynczy_fft_prad, t);
-//			  sprintf(wiadomosc, "%0.8f %0.8f %0.8f %d ",pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, t);
+//			  sprintf(wiadomosc, "%0.6f %0.6f %0.6f %0.6f %0.6f %d ",pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, pojedynczy_fft_napiecie, pojedynczy_fft_prad, t);
+			  sprintf(wiadomosc, "%0.8f %0.8f %0.8f %d ",pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, t);
 			  serverUDPSendString(wiadomosc);
 
 		  }
