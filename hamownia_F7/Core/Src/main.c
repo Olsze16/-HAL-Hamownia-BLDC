@@ -38,19 +38,8 @@
 #include "stm32_udp_server.h"
 #define belka 100 // czas pomiaru dla belki
 #define startup 1500 // czas rozruchu
-#define czas_testu 200 // czas testu w ms *10
-#define max_pwm 730 // maksymalne wypełnienie pwm dla regulatora esc
 
-#define MPU6050_ADDR 0xD0
 
-#define WHO_AM_I_REG 0x75
-#define PWR_MGMT_1_REG 0x6B
-#define SMPLRT_DIV_REG 0x19
-#define GYRO_CONFIG_REG 0x1B
-#define ACCEL_CONFIG_REG 0x1C
-#define ACCEL_XOUT_H_REG 0x3B
-#define TEMP_OUT_H_REG 0x41
-#define GYRO_XOUT_H_REG 0x43
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -113,19 +102,14 @@ int j = 0;
 float napiecie =0, temp = 0, prad = 0, suma_napiec=0, napiecie_przed = 0, napiecie_fft = 0, suma_temp = 0, temp_przed = 0, suma_pradow = 0, prad_przed = 0, prad_fft = 0;
 float Ax, Ay, Az;
 float pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, pojedynczy_fft_prad, pojedynczy_fft_napiecie;
-int16_t Accel_X_RAW = 0;
-int16_t Accel_Y_RAW = 0;
-int16_t Accel_Z_RAW = 0;
 int16_t x,y,z;
 uint8_t dane_odebrane[6];
 uint32_t status=0,status2, rpm = 0, licznik=0, pomiary_napiecia =0, pomiary_temp = 0, pomiary_pradu = 0;
 uint32_t czas=0, odczyt_belki=0, ciag=0, tara=0;
 uint32_t pwm = 550,nastawa;
 uint8_t inicjalizacja = 0, wyslij = 0;
-uint32_t start,dsp;
-uint8_t znak;
-uint8_t komunikat[80],test_pol[3]="OK ", wiadomosc[100]; // czesc danielu
-uint16_t dl_kom; // czesc kamil
+uint32_t start;
+uint8_t komunikat[80],test_pol[3]="OK ", wiadomosc[100];
 uint32_t poprzedni_czas_belka;
 uint32_t poprzedni_czas_startup;
 uint32_t tachometr_czas;
@@ -133,7 +117,7 @@ uint32_t wysylanie_czas;
 uint32_t analogowe[4]; // tablica dla odczytu z czujnika temperatury i napięcia
 
 uint8_t procent,start_sampli = 0;
-uint16_t t=1;
+uint16_t t=1,czas_testu;
 
 
 uint8_t   buffer[UDP_RECEIVE_MSG_SIZE]={0};
@@ -218,6 +202,9 @@ void inicjalizacja_silnika() // funkcja inicjalizacji silnika
 }
 void test_silnika_fft()
 {
+	czas_zadany();
+	predkosc_zadana();
+
 	   __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1,pwm); // załączenie pwm o zmiennym wypelnieniu inkrementowanym w obsłudze przerwania od timera 16
 
     if(HAL_GetTick() - poprzedni_czas_belka > belka)  // sprawdzenie czy upłynął już czas belka = 100ms
@@ -244,7 +231,8 @@ void test_silnika_fft()
 }
 void test_silnika() // funkcja automatycznego testu silnika
 {
-
+	czas_zadany();
+	predkosc_zadana();
 
 	   __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1,pwm); // załączenie pwm o zmiennym wypelnieniu inkrementowanym w obsłudze przerwania od timera 16
 
@@ -255,7 +243,7 @@ void test_silnika() // funkcja automatycznego testu silnika
 
 	    odczyt_ciagu();
 
-		transmisja_danych();  // funkcja wysyłania danych
+//		transmisja_danych();  // funkcja wysyłania danych
 
 
 		if(czas==czas_testu)  // sprawdzenie czy czas testu minął
@@ -289,7 +277,7 @@ void tryb_reczny() // funkcja ręcznego załączania silnika
 
 			odczyt_ciagu();
 
-			transmisja_danych();    // funkcja wysyłania danych
+//			transmisja_danych();    // funkcja wysyłania danych
 
 	       }
 
@@ -404,18 +392,14 @@ void odbior_danych()
             start=4;
 
           }
-          if(buffer[0] == '8')
-          {
-            dsp=8;
 
-          }
       }
 }
 void transmisja_danych() // funkcja wysyłania danych za pomocą UART
 {
 //	dl_kom = sprintf(komunikat, "%d %d %0.2f %0.2f %0.2f %0.2f %0.2f %0.2f", ciag,rpm,temp,napiecie,prad,Ax,Ay,Az); // przygotowanie komunikatu w postaci pomiarów po przecinku
 	//HAL_UART_Transmit_IT(&huart3, komunikat, dl_kom); // transmisja UART danych zawartych w tablicy kominukat
-    dl_kom = sprintf(komunikat, "%0.2f %0.2f %d %0.2f %d      ", prad,napiecie,rpm,temp,ciag);
+    sprintf(komunikat, "%0.2f %0.2f %d %0.2f %d      ", prad,napiecie,rpm,temp,ciag);
 	serverUDPSendString(komunikat);
 }
 
@@ -441,6 +425,18 @@ void predkosc_zadana()
 	b=b-48;
 	procent = (a*10)+b;
 	nastawa = (procent * 5)+500;
+
+}
+
+void czas_zadany()
+{
+	int c,d;
+	c=buffer[5];
+	d=buffer[6];
+	c=c-48;
+	d=d-48;
+	czas_testu = ((c*10)+d)*10;
+
 
 }
 
@@ -513,7 +509,6 @@ int main(void)
    HAL_TIM_Base_Start_IT(&htim4);  // start przerwań od timera 14
    HAL_TIM_Base_Start_IT(&htim14);  // start przerwań od timera 14
    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1); // start pwm od timera 17
-   HAL_UART_Receive_IT(&huart3, &znak, 1); // aktywacja przerwania od odbioru jednego znaku
 
    HAL_ADC_Start_DMA(&hadc1,analogowe,4); // start DMA i zapis do tablicy analogowe
 
@@ -546,18 +541,9 @@ int main(void)
 	  }
 	  while(inicjalizacja ==0);
 
-//	  MPU6050_odczyt_akcel();
-
-
 	  adxl_odczyt_wartosci();
 	  odbior_danych();
-/*
-	  arm_rfft_f32(&S, bufor_wejsciowy_pradu, bufor_wyjsciowy_pradu);
 
-	  arm_cmplx_mag_f32(bufor_wyjsciowy_pradu, bufor_wyjsciowy_pradu_mag, 512);
-
-	  arm_max_f32(bufor_wyjsciowy_pradu_mag, 512, &maxvalue, &maxvalueindex);
-*/
 	  if(start==0)
 	 	{
 		  stop();
@@ -588,58 +574,6 @@ int main(void)
 
 
 	  }
-/*
-      if(HAL_GetTick() - wysylanie_czas > 1) // sprawdzenie czy upłynął już czas belka = 100ms
-      {
-	    wysylanie_czas = HAL_GetTick();     // pobranie aktualnego czasu
-
-		  if(wyslij==1)
-		  {
-
-			  if(t<256)
-			  {
-				  odbior_danych();
-				  pojedynczy_fft_osx = bufor_wyjsciowy_osx_mag[t];
-				  pojedynczy_fft_osy = bufor_wyjsciowy_osy_mag[t];
-				  pojedynczy_fft_osz = bufor_wyjsciowy_osz_mag[t];
-				  pojedynczy_fft_prad = bufor_wyjsciowy_pradu_mag[t];
-				  pojedynczy_fft_napiecie = bufor_wyjsciowy_napiecia_mag[t];
-	//			  sprintf(wiadomosc, "%0.2f %0.2f %d %0.2f %d %0.6f %0.6f %0.6f %d ",prad,napiecie,rpm,temp,ciag, pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, t);
-	//			  sprintf(wiadomosc, "%0.2f %0.2f %d %0.2f %d %0.6f %0.6f %0.6f %0.6f %0.6f %d ",prad,napiecie,rpm,temp,ciag, pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, pojedynczy_fft_napiecie, pojedynczy_fft_prad, t);
-				  sprintf(wiadomosc, "%0.8f %0.8f %0.8f %d ",pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, t);
-				  serverUDPSendString(wiadomosc);
-				  t++;
-			  }
-			  if(t==255)
-			  {
-				  t=1;
-				  wyslij=0;
-			  }
-
-		  }
-
-      }
-      */
-/*
-	  if(wyslij==1)
-	  {
-		  for(int t=1; t<256; t++)
-		  {
-
-			  pojedynczy_fft_osx = bufor_wyjsciowy_osx_mag[t];
-			  pojedynczy_fft_osy = bufor_wyjsciowy_osy_mag[t];
-			  pojedynczy_fft_osz = bufor_wyjsciowy_osz_mag[t];
-			  pojedynczy_fft_prad = bufor_wyjsciowy_pradu_mag[t];
-			  pojedynczy_fft_napiecie = bufor_wyjsciowy_napiecia_mag[t];
-//			  sprintf(wiadomosc, "%0.2f %0.2f %d %0.2f %d %0.6f %0.6f %0.6f %d ",prad,napiecie,rpm,temp,ciag, pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, t);
-//			  sprintf(wiadomosc, "%0.2f %0.2f %d %0.2f %d %0.6f %0.6f %0.6f %0.6f %0.6f %d ",prad,napiecie,rpm,temp,ciag, pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, pojedynczy_fft_napiecie, pojedynczy_fft_prad, t);
-			  sprintf(wiadomosc, "%0.8f %0.8f %0.8f %d ",pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, t);
-			  serverUDPSendString(wiadomosc);
-
-		  }
-		  wyslij=0;
-
-	  } */
 
     /* USER CODE END WHILE */
 
@@ -713,18 +647,23 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // ogolna funkcja ob
 
 		odmierzanie_czasu_testu();
 
+	    if(start==1||start==3)
+	    {
+	    	transmisja_danych();
+	    }
+
 		    if(start==1||start==4)
 		    {
 		    HAL_GPIO_TogglePin(GPIOB, LD2_Pin); // zmiana stanu diody led na płytce
 		    }
 
-			if((start == 1 && pwm < max_pwm )||(start == 4 && pwm < max_pwm ))   //warunek na zwiekszanie wypelnienia w pwm w teście automatycznym
+			if((start == 1 && pwm < nastawa )||(start == 4 && pwm < nastawa ))   //warunek na zwiekszanie wypelnienia w pwm w teście automatycznym
 			{
 			pwm+=2;
 
 			}
 
-			if(czas == czas_testu-10 && pwm == max_pwm) // wyłączenie silnika chwile przed końcem
+			if(czas == czas_testu-10) // wyłączenie silnika chwile przed końcem
 			{
 		    pwm = 550;
 
@@ -736,14 +675,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // ogolna funkcja ob
 	}
 	if(htim->Instance == TIM4) //sprawdzenie czy przerwanie pochodzi od timera 2
 	{
-/*
-		if(start==4)
-		{
-		  odbior_danych();
-		  sprintf(wiadomosc, "chuj");
-		  serverUDPSendString(wiadomosc);
-		}
-		*/
+
 		  if(wyslij==1)
 		  {
 
@@ -755,8 +687,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // ogolna funkcja ob
 				  pojedynczy_fft_osz = bufor_wyjsciowy_osz_mag[t];
 				  pojedynczy_fft_prad = bufor_wyjsciowy_pradu_mag[t];
 				  pojedynczy_fft_napiecie = bufor_wyjsciowy_napiecia_mag[t];
-	//			  sprintf(wiadomosc, "%0.2f %0.2f %d %0.2f %d %0.6f %0.6f %0.6f %d ",prad,napiecie,rpm,temp,ciag, pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, t);
-	//			  sprintf(wiadomosc, "%0.2f %0.2f %d %0.2f %d %0.6f %0.6f %0.6f %0.6f %0.6f %d ",prad,napiecie,rpm,temp,ciag, pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, pojedynczy_fft_napiecie, pojedynczy_fft_prad, t);
 				  sprintf(wiadomosc, "%0.6f %0.6f %0.6f %0.6f %0.6f %d    ",pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, pojedynczy_fft_napiecie, pojedynczy_fft_prad, t);
 				  serverUDPSendString(wiadomosc);
 				  t++;
@@ -855,48 +785,14 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // ogolna funkcja ob
 			j=0;
 		}
 
-
 		tachometr(); // pomiar predkosci obrotowej
 		odczyt_wartosci_anlg(); //odczytywanie wartosci analogowej z czujnika prędkości i zamiana na stan niski lub wysoki
-//		pomiar_napiecia();  // pomiar napiecia zasilania
 		pomiar_temperatury();// pomiar temperatury silnika
-//		przeliczanie_akcelerometru();
-
 
 	}
 
 }
-/*
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) //przerwanie od UART na odboiór danych
-{
-	if(huart -> Instance == USART3)  //sprawdzenie czy przerwanie pochodzi od uart3
-	{
-		if(znak == '1')
-		{
-			start = 1;   // ustawienie bitu startu jesli otrzymany znak to '1'
 
-		}
-		if(znak == '0')
-		{
-			start = 0;   // ustawienie bitu startu jesli otrzymany znak to '0'
-
-		}
-		if(znak == '2')
-		{
-			start = 2;   // ustawienie bitu startu jesli otrzymany znak to '2'
-
-		}
-		if(znak == '3')
-		{
-			fft = 3;   // ustawienie bitu startu jesli otrzymany znak to '2'
-
-		}
-
-
-	  HAL_UART_Receive_IT(&huart3, &znak, 1);
-
-	}
-}*/
 /* USER CODE END 4 */
 
 /**
