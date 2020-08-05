@@ -116,7 +116,7 @@ uint32_t tachometr_czas;
 uint32_t wysylanie_czas;
 uint32_t analogowe[4]; // tablica dla odczytu z czujnika temperatury i napięcia
 
-uint8_t procent,start_sampli = 0;
+uint8_t procent,rampa,start_sampli = 0;
 uint16_t t=1,czas_testu;
 
 
@@ -204,6 +204,7 @@ void test_silnika_fft()
 {
 	czas_zadany();
 	predkosc_zadana();
+	rampa_zadana();
 
 	   __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1,pwm); // załączenie pwm o zmiennym wypelnieniu inkrementowanym w obsłudze przerwania od timera 16
 
@@ -233,6 +234,7 @@ void test_silnika() // funkcja automatycznego testu silnika
 {
 	czas_zadany();
 	predkosc_zadana();
+	rampa_zadana();
 
 	   __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1,pwm); // załączenie pwm o zmiennym wypelnieniu inkrementowanym w obsłudze przerwania od timera 16
 
@@ -399,7 +401,7 @@ void transmisja_danych() // funkcja wysyłania danych za pomocą UART
 {
 //	dl_kom = sprintf(komunikat, "%d %d %0.2f %0.2f %0.2f %0.2f %0.2f %0.2f", ciag,rpm,temp,napiecie,prad,Ax,Ay,Az); // przygotowanie komunikatu w postaci pomiarów po przecinku
 	//HAL_UART_Transmit_IT(&huart3, komunikat, dl_kom); // transmisja UART danych zawartych w tablicy kominukat
-    sprintf(komunikat, "%0.2f %0.2f %d %0.2f %d      ", prad,napiecie,rpm,temp,ciag);
+    sprintf(komunikat, "%0.2f %0.2f %d %0.2f %d        ", prad,napiecie,rpm,temp,ciag);
 	serverUDPSendString(komunikat);
 }
 
@@ -436,6 +438,18 @@ void czas_zadany()
 	c=c-48;
 	d=d-48;
 	czas_testu = ((c*10)+d)*10;
+
+
+}
+
+void rampa_zadana()
+{
+	int e,f;
+	e=buffer[8];
+	f=buffer[9];
+	e=e-48;
+	f=f-48;
+	rampa = (e*10)+f;
 
 
 }
@@ -659,7 +673,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // ogolna funkcja ob
 
 			if((start == 1 && pwm < nastawa )||(start == 4 && pwm < nastawa ))   //warunek na zwiekszanie wypelnienia w pwm w teście automatycznym
 			{
-			pwm+=2;
+			pwm+=rampa;
 
 			}
 
@@ -687,7 +701,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // ogolna funkcja ob
 				  pojedynczy_fft_osz = bufor_wyjsciowy_osz_mag[t];
 				  pojedynczy_fft_prad = bufor_wyjsciowy_pradu_mag[t];
 				  pojedynczy_fft_napiecie = bufor_wyjsciowy_napiecia_mag[t];
-				  sprintf(wiadomosc, "%0.6f %0.6f %0.6f %0.6f %0.6f %d    ",pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, pojedynczy_fft_napiecie, pojedynczy_fft_prad, t);
+				  sprintf(wiadomosc, "%0.6f %0.6f %0.6f %0.6f %0.6f %d        ",pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, pojedynczy_fft_napiecie, pojedynczy_fft_prad, t);
 				  serverUDPSendString(wiadomosc);
 				  t++;
 			  }
