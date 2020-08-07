@@ -109,7 +109,7 @@ uint32_t czas=0, odczyt_belki=0, ciag=0, tara=0;
 uint32_t pwm = 550,nastawa;
 uint8_t inicjalizacja = 0, wyslij = 0;
 uint32_t start;
-uint8_t komunikat[80],test_pol[3]="OK ", wiadomosc[100];
+uint8_t komunikat[80],test_pol[3]="OK ",koniec[4]="END ", wiadomosc[100];
 uint32_t poprzedni_czas_belka;
 uint32_t poprzedni_czas_startup;
 uint32_t tachometr_czas;
@@ -221,6 +221,7 @@ void test_silnika_fft()
 
 			start=0;  // ustawienie końcowe zmiennych
 			czas=0;
+			serverUDPSendString(koniec);
 
 
 		}
@@ -253,6 +254,7 @@ void test_silnika() // funkcja automatycznego testu silnika
 
 			start=0;  // ustawienie końcowe zmiennych
 			czas=0;
+			serverUDPSendString(koniec);
 
 
 		}
