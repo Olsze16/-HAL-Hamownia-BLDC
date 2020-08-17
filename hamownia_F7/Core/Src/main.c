@@ -61,55 +61,71 @@ arm_cfft_radix4_instance_f32 S_CFFT;
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-float32_t bufor_wejsciowy_pradu[512];
-float32_t bufor_wyjsciowy_pradu[1024];
-float32_t bufor_wyjsciowy_pradu_mag[512];
-float32_t buffer_output_mag_copy[256];
+
+float32_t bufor_wejsciowy_pradu[4096];
+float32_t bufor_wyjsciowy_pradu[8192];
+float32_t bufor_wyjsciowy_pradu_mag[4096];
+float32_t buffer_output_mag_copy[2048];
+
 float32_t maxvalue;
 uint32_t  maxvalueindex;
 
-float32_t bufor_wejsciowy_osx[512];
-float32_t bufor_wyjsciowy_osx[1024];
-float32_t bufor_wyjsciowy_osx_mag[512];
-float32_t buffer_output_mag_copy1[256];
+float32_t bufor_wejsciowy_osx[4096];
+float32_t bufor_wyjsciowy_osx[8192];
+float32_t bufor_wyjsciowy_osx_mag[4096];
+float32_t buffer_output_mag_copy1[2048];
+
 float32_t maxvalue1;
 uint32_t  maxvalueindex1;
 
-float32_t bufor_wejsciowy_osy[512];
-float32_t bufor_wyjsciowy_osy[1024];
-float32_t bufor_wyjsciowy_osy_mag[512];
-float32_t buffer_output_mag_copy2[256];
+float32_t bufor_wejsciowy_osy[4096];
+float32_t bufor_wyjsciowy_osy[8192];
+float32_t bufor_wyjsciowy_osy_mag[4096];
+float32_t buffer_output_mag_copy2[2048];
+
 float32_t maxvalue2;
 uint32_t  maxvalueindex2;
 
-float32_t bufor_wejsciowy_osz[512];
-float32_t bufor_wyjsciowy_osz[1024];
-float32_t bufor_wyjsciowy_osz_mag[512];
-float32_t buffer_output_mag_copy3[256];
+float32_t bufor_wejsciowy_osz[4096];
+float32_t bufor_wyjsciowy_osz[8192];
+float32_t bufor_wyjsciowy_osz_mag[4096];
+float32_t buffer_output_mag_copy3[2048];
+
 float32_t maxvalue3;
 uint32_t  maxvalueindex3;
 
-float32_t bufor_wejsciowy_napiecia[512];
-float32_t bufor_wyjsciowy_napiecia[1024];
-float32_t bufor_wyjsciowy_napiecia_mag[512];
-float32_t buffer_output_mag_copy4[256];
+float32_t bufor_wejsciowy_napiecia[4096];
+float32_t bufor_wyjsciowy_napiecia[8192];
+float32_t bufor_wyjsciowy_napiecia_mag[4096];
+float32_t buffer_output_mag_copy4[2048];
+
 float32_t maxvalue4;
 uint32_t  maxvalueindex4;
 
-
+float32_t bufor_pradu[512];
+float32_t bufor_napiecia[512];
+float32_t bufor_temp[512];
+float32_t bufor_ax[512];
+float32_t bufor_ay[512];
+float32_t bufor_az[512];
+uint32_t bufor_rpm[512];
+uint32_t bufor_ciag[512];
+uint16_t bufor_czasu[512];
 
 int j = 0;
-float napiecie =0, temp = 0, prad = 0, suma_napiec=0, napiecie_przed = 0, napiecie_fft = 0, suma_temp = 0, temp_przed = 0, suma_pradow = 0, prad_przed = 0, prad_fft = 0;
+float napiecie =0, temp = 0, prad = 0, suma_napiec=0, napiecie_przed = 0, napiecie_fft = 0, suma_temp = 0, temp_przed = 0, temp_chw =0, suma_pradow = 0, prad_przed = 0, prad_fft = 0;
 float Ax, Ay, Az;
-float pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, pojedynczy_fft_prad, pojedynczy_fft_napiecie;
-int16_t x,y,z;
+float pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, pojedynczy_fft_prad, pojedynczy_fft_napiecie, prad1, napiecie1;
+float ax1,ay1,az1,temp1;
+uint32_t rpm1,ciag1;
+int16_t x,y,z,czas1;
 uint8_t dane_odebrane[6];
 uint32_t status=0,status2, rpm = 0, licznik=0, pomiary_napiecia =0, pomiary_temp = 0, pomiary_pradu = 0;
 uint32_t czas=0, odczyt_belki=0, ciag=0, tara=0;
 uint32_t pwm = 550,nastawa;
-uint8_t inicjalizacja = 0, wyslij = 0;
-uint32_t start;
-uint8_t komunikat[80],test_pol[3]="OK ",koniec[4]="END ", wiadomosc[100];
+uint8_t inicjalizacja = 0, wyslij = 0,wyslij_dane=0;
+uint32_t start,dane;
+uint8_t komunikat[80],test_pol[3]="OK ",koniec[4]="END ", wiadomosc[100], wiadomosc2[100];
 uint32_t poprzedni_czas_belka;
 uint32_t poprzedni_czas_startup;
 uint32_t tachometr_czas;
@@ -118,7 +134,9 @@ uint32_t analogowe[4]; // tablica dla odczytu z czujnika temperatury i napięcia
 
 uint8_t procent,rampa,start_sampli = 0;
 uint16_t t=1,czas_testu;
-
+uint32_t czas_probki=8;
+uint8_t nr_trybu,gotowosc,wykonywanie_fft=1;
+uint16_t ilosc_probek,ilosc_danych,b1,b2,b3;
 
 uint8_t   buffer[UDP_RECEIVE_MSG_SIZE]={0};
 UDP_RECEIVE_t  rx_check = UDP_REVEICE_BUF_EMPTY;
@@ -205,6 +223,9 @@ void test_silnika_fft()
 	czas_zadany();
 	predkosc_zadana();
 	rampa_zadana();
+	rozmiar_fft();
+	arm_rfft_init_f32(&S, &S_CFFT, ilosc_probek, 0, 1);
+	gotowosc=1;
 
 	   __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1,pwm); // załączenie pwm o zmiennym wypelnieniu inkrementowanym w obsłudze przerwania od timera 16
 
@@ -221,6 +242,7 @@ void test_silnika_fft()
 
 			start=0;  // ustawienie końcowe zmiennych
 			czas=0;
+			gotowosc=0;
 			serverUDPSendString(koniec);
 
 
@@ -246,7 +268,7 @@ void test_silnika() // funkcja automatycznego testu silnika
 
 	    odczyt_ciagu();
 
-//		transmisja_danych();  // funkcja wysyłania danych
+
 
 
 		if(czas==czas_testu)  // sprawdzenie czy czas testu minął
@@ -281,11 +303,42 @@ void tryb_reczny() // funkcja ręcznego załączania silnika
 
 			odczyt_ciagu();
 
-//			transmisja_danych();    // funkcja wysyłania danych
-
 	       }
 
 
+}
+
+void akwizycja_danych()
+{
+	czas_zadany();
+	predkosc_zadana();
+	rampa_zadana();
+
+	   __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1,pwm); // załączenie pwm o zmiennym wypelnieniu inkrementowanym w obsłudze przerwania od timera 16
+
+       if(HAL_GetTick() - poprzedni_czas_belka > belka)  // sprawdzenie czy upłynął już czas belka = 100ms
+       {
+	    poprzedni_czas_belka = HAL_GetTick();  // pobranie aktualnego czasu
+
+
+	    odczyt_ciagu();
+
+
+
+
+		if(czas==czas_testu)  // sprawdzenie czy czas testu minął
+		{
+
+			start=0;  // ustawienie końcowe zmiennych
+			czas=0;
+			serverUDPSendString(koniec);
+
+
+		}
+
+
+
+     }
 }
 
 void odczyt_wartosci_anlg()  // funkcja odczytu wartosci analogowych z tablicy i ustawienie stanu (wykrywanie znacznika na rotorze)
@@ -326,6 +379,7 @@ void pomiar_temperatury()  // pomiar temperatury z analogowego czujnika LM35
 	temp_przed = analogowe[2]*3.3f / 4096.0f; //przeliczanie wartości analogowej
 	temp_przed = temp_przed*1000; // zamiana na mV
 	temp_przed = temp_przed/10; // zamiana na stopnie Celsjusza wynikająca z noty katalogowej (1 st. C = 10mV)
+	temp_chw = temp_przed;
 	suma_temp += temp_przed; // sumowanie odczytów
 	pomiary_temp++; // inkrementacja licznika ilości odczytów
 
@@ -396,15 +450,26 @@ void odbior_danych()
             start=4;
 
           }
+          if(buffer[0] == '5')
+          {
+        	  start=5;
+          }
+          if(buffer[0] == '6')
+          {
+        	  dane=6;
+          }
 
       }
 }
 void transmisja_danych() // funkcja wysyłania danych za pomocą UART
 {
-//	dl_kom = sprintf(komunikat, "%d %d %0.2f %0.2f %0.2f %0.2f %0.2f %0.2f", ciag,rpm,temp,napiecie,prad,Ax,Ay,Az); // przygotowanie komunikatu w postaci pomiarów po przecinku
-	//HAL_UART_Transmit_IT(&huart3, komunikat, dl_kom); // transmisja UART danych zawartych w tablicy kominukat
-    sprintf(komunikat, "%0.2f %0.2f %d %0.2f %d        ", prad,napiecie,rpm,temp,ciag);
+
+	czas_probki=__HAL_TIM_GET_COUNTER(&htim7);
+	czas_probki=czas_probki+65535;
+    sprintf(komunikat, "%0.2f %0.2f %d %0.2f %d %d       ", prad,napiecie,rpm,temp,ciag,czas_probki);
 	serverUDPSendString(komunikat);
+	__HAL_TIM_SET_COUNTER (&htim7,0);
+
 }
 
 
@@ -456,9 +521,40 @@ void rampa_zadana()
 
 }
 
+void rozmiar_fft()
+{
+	int g;
+	g=buffer[13];
+	g=g-48;
+	if(g==1)
+	{
+		ilosc_probek = 512;
+		ilosc_danych = 256;
+
+	}
+	if(g==2)
+	{
+		ilosc_probek = 1024;
+		ilosc_danych = 512;
+
+	}
+	if(g==3)
+	{
+		ilosc_probek = 2048;
+		ilosc_danych = 1024;
+	}
+	if(g==4)
+	{
+		ilosc_probek = 4096;
+		ilosc_danych = 2048;
+	}
+
+
+}
+
 void odmierzanie_czasu_testu()
 {
-	if(start==1||start==4)
+	if(start==1||start==4||start==5)
 	{
 
       if(czas<czas_testu) // sprawdzenie czy czas testu minął
@@ -467,8 +563,19 @@ void odmierzanie_czasu_testu()
        }
 	}
 }
-
-
+/*
+void pomiar_okresu_probkowania()
+{
+	if(start==1)
+	{
+	__HAL_TIM_SET_COUNTER (&htim13, 0);
+	if(__HAL_TIM_GET_COUNTER(&htim13)==95)
+	{
+		czas_probki++;
+	}
+	}
+}
+*/
 /* USER CODE END 0 */
 
 /**
@@ -514,8 +621,9 @@ int main(void)
   MX_TIM14_Init();
   MX_TIM4_Init();
   MX_LWIP_Init();
+  MX_TIM7_Init();
   /* USER CODE BEGIN 2 */
-  arm_rfft_init_f32(&S, &S_CFFT, 512, 0, 1);
+//  arm_rfft_init_f32(&S, &S_CFFT, 4096, 0, 1);
 
 
   // MPU6050_Init();
@@ -523,6 +631,7 @@ int main(void)
 
    HAL_TIM_Base_Start_IT(&htim3);  // start przerwań od timera 3
    HAL_TIM_Base_Start_IT(&htim4);  // start przerwań od timera 14
+   HAL_TIM_Base_Start_IT(&htim7);  // start przerwań od timera 14
    HAL_TIM_Base_Start_IT(&htim14);  // start przerwań od timera 14
    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1); // start pwm od timera 17
 
@@ -559,6 +668,8 @@ int main(void)
 
 	  adxl_odczyt_wartosci();
 	  odbior_danych();
+//	  pomiar_okresu_probkowania();
+
 
 	  if(start==0)
 	 	{
@@ -588,6 +699,12 @@ int main(void)
 	  {
 		  test_silnika_fft();
 
+
+	  }
+
+	  if(start==5)
+	  {
+		  akwizycja_danych();
 
 	  }
 
@@ -668,12 +785,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // ogolna funkcja ob
 	    	transmisja_danych();
 	    }
 
-		    if(start==1||start==4)
+		    if(start==1||start==4||start==5)
 		    {
 		    HAL_GPIO_TogglePin(GPIOB, LD2_Pin); // zmiana stanu diody led na płytce
 		    }
 
-			if((start == 1 && pwm < nastawa )||(start == 4 && pwm < nastawa ))   //warunek na zwiekszanie wypelnienia w pwm w teście automatycznym
+			if((start == 1 && pwm < nastawa )||(start == 4 && pwm < nastawa )||(start == 5 && pwm < nastawa ))   //warunek na zwiekszanie wypelnienia w pwm w teście automatycznym
 			{
 			pwm+=rampa;
 
@@ -695,7 +812,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // ogolna funkcja ob
 		  if(wyslij==1)
 		  {
 
-			  if(t<257)
+			  if(t<(ilosc_danych+1))
 			  {
 				  odbior_danych();
 				  pojedynczy_fft_osx = bufor_wyjsciowy_osx_mag[t];
@@ -703,25 +820,105 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // ogolna funkcja ob
 				  pojedynczy_fft_osz = bufor_wyjsciowy_osz_mag[t];
 				  pojedynczy_fft_prad = bufor_wyjsciowy_pradu_mag[t];
 				  pojedynczy_fft_napiecie = bufor_wyjsciowy_napiecia_mag[t];
-				  sprintf(wiadomosc, "%0.6f %0.6f %0.6f %0.6f %0.6f %d        ",pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, pojedynczy_fft_napiecie, pojedynczy_fft_prad, t);
+				  sprintf(wiadomosc, "%0.6f %0.6f %0.6f %0.6f %0.6f %d %d        ",pojedynczy_fft_osx, pojedynczy_fft_osy, pojedynczy_fft_osz, pojedynczy_fft_napiecie, pojedynczy_fft_prad, t,ilosc_probek);
 				  serverUDPSendString(wiadomosc);
 				  t++;
 			  }
-			  if(t==256)
+			  if(t==ilosc_danych)
 			  {
 				  t=1;
 				  wyslij=0;
+				  wykonywanie_fft=1;
+			  }
+		  }
+
+		  if(wyslij_dane==1)
+		  {
+
+			  if(t<513)
+			  {
+				  odbior_danych();
+				  prad1 = bufor_pradu[t];
+				  napiecie1 = bufor_napiecia[t];
+				  ax1=bufor_ax[t];
+				  ay1=bufor_ay[t];
+				  az1=bufor_az[t];
+				  rpm1=bufor_rpm[t];
+				  ciag1=bufor_ciag[t];
+				  temp1=bufor_temp[t];
+				  czas1=bufor_czasu[t];
+
+				  sprintf(wiadomosc, "%0.3f %0.3f %d %0.3f %d %0.3f %0.3f %0.3f %d %d    ",prad1,napiecie1,rpm1,temp1,ciag1,ax1,ay1,az1,czas1,t);
+				  serverUDPSendString(wiadomosc);
+				  t++;
+			  }
+			  if(t==512)
+			  {
+				  t=0;
+				  wyslij_dane=0;
 			  }
 		  }
 
 
 	}
+/*
+    if(start==1||start==3||start==5)
+    {
+	if(htim->Instance == TIM7)
+	{
 
+		czas_probki++;
+	}
+	}
+*/
 	if(htim->Instance == TIM14) //sprawdzenie czy przerwanie pochodzi od timera 2
 	{
 
-		if(j<512)
+			odbior_danych();
+			pomiar_pradu();
+			pomiar_napiecia();
+			przeliczanie_akcelerometru();
+			tachometr(); // pomiar predkosci obrotowej
+			odczyt_wartosci_anlg(); //odczytywanie wartosci analogowej z czujnika prędkości i zamiana na stan niski lub wysoki
+			pomiar_temperatury();// pomiar temperatury silnika
+			if(start==5)
+			{
+
+			if(j<512)
+			{
+
+				bufor_pradu[j]=prad_fft;
+				bufor_napiecia[j]=napiecie_fft;
+				bufor_ax[j]=Ax;
+				bufor_ay[j]=Ay;
+				bufor_az[j]=Az;
+				bufor_rpm[j]=rpm;
+				bufor_ciag[j]=ciag;
+				bufor_temp[j]=temp;
+
+				czas_probki=__HAL_TIM_GET_COUNTER(&htim7);
+				bufor_czasu[j]=czas_probki;
+				__HAL_TIM_SET_COUNTER (&htim7,0);
+
+
+			}
+			j++;
+			if(j==512)
+			{
+				j=0;
+				wyslij_dane = 1;
+
+			}
+
+	    	}
+
+
+		if(start==4&&gotowosc==1)
 		{
+		if(j<ilosc_probek)
+		{
+
+
 			pomiar_pradu();
 			bufor_wejsciowy_pradu[j]=prad_fft;
 			pomiar_napiecia();
@@ -734,69 +931,67 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // ogolna funkcja ob
 
 		}
 		j++;
-		if(j==512)
+		if(j==ilosc_probek&&wykonywanie_fft==1)
 		{
-			if(start==4)
-			{
+
 			  arm_rfft_f32(&S, bufor_wejsciowy_osx, bufor_wyjsciowy_osx);
 
-			  arm_cmplx_mag_f32(bufor_wyjsciowy_osx, bufor_wyjsciowy_osx_mag, 512);
+			  arm_cmplx_mag_f32(bufor_wyjsciowy_osx, bufor_wyjsciowy_osx_mag, ilosc_probek);
 
-			  arm_max_f32(bufor_wyjsciowy_osx_mag, 512, &maxvalue1, &maxvalueindex1);
+			  arm_max_f32(bufor_wyjsciowy_osx_mag, ilosc_probek, &maxvalue1, &maxvalueindex1);
 
 
-			  for(int i=0; i<512; ++i){
+			  for(int i=0; i<ilosc_probek; ++i){
 			  	bufor_wyjsciowy_osx_mag[i] = 100*bufor_wyjsciowy_osx_mag[i]/maxvalue1;
 			  }
 
 			  arm_rfft_f32(&S, bufor_wejsciowy_osy, bufor_wyjsciowy_osy);
 
-			  arm_cmplx_mag_f32(bufor_wyjsciowy_osy, bufor_wyjsciowy_osy_mag, 512);
+			  arm_cmplx_mag_f32(bufor_wyjsciowy_osy, bufor_wyjsciowy_osy_mag, ilosc_probek);
 
-			  arm_max_f32(bufor_wyjsciowy_osy_mag, 512, &maxvalue2, &maxvalueindex2);
+			  arm_max_f32(bufor_wyjsciowy_osy_mag, ilosc_probek, &maxvalue2, &maxvalueindex2);
 
 
-			  for(int i=0; i<512; ++i){
+			  for(int i=0; i<ilosc_probek; ++i){
 			  	bufor_wyjsciowy_osy_mag[i] = 100*bufor_wyjsciowy_osy_mag[i]/maxvalue2;
 			  }
 
 			  arm_rfft_f32(&S, bufor_wejsciowy_osz, bufor_wyjsciowy_osz);
 
-			  arm_cmplx_mag_f32(bufor_wyjsciowy_osz, bufor_wyjsciowy_osz_mag, 512);
+			  arm_cmplx_mag_f32(bufor_wyjsciowy_osz, bufor_wyjsciowy_osz_mag, ilosc_probek);
 
-			  arm_max_f32(bufor_wyjsciowy_osz_mag, 512, &maxvalue3, &maxvalueindex3);
+			  arm_max_f32(bufor_wyjsciowy_osz_mag, ilosc_probek, &maxvalue3, &maxvalueindex3);
 
 
-			  for(int i=0; i<512; ++i){
+			  for(int i=0; i<ilosc_probek; ++i){
 			  	bufor_wyjsciowy_osz_mag[i] = 100*bufor_wyjsciowy_osz_mag[i]/maxvalue3;
 			  }
 
 			  arm_rfft_f32(&S, bufor_wejsciowy_pradu, bufor_wyjsciowy_pradu);
 
-			  arm_cmplx_mag_f32(bufor_wyjsciowy_pradu, bufor_wyjsciowy_pradu_mag, 512);
+			  arm_cmplx_mag_f32(bufor_wyjsciowy_pradu, bufor_wyjsciowy_pradu_mag, ilosc_probek);
 
-			  arm_max_f32(bufor_wyjsciowy_pradu_mag, 512, &maxvalue, &maxvalueindex);
+			  arm_max_f32(bufor_wyjsciowy_pradu_mag, ilosc_probek, &maxvalue, &maxvalueindex);
 
 
-			  for(int i=0; i<512; ++i){
+			  for(int i=0; i<ilosc_probek; ++i){
 			  	bufor_wyjsciowy_pradu_mag[i] = 100*bufor_wyjsciowy_pradu_mag[i]/maxvalue;
 			  }
 
 
 			  arm_rfft_f32(&S, bufor_wejsciowy_napiecia, bufor_wyjsciowy_napiecia);
 
-			  arm_cmplx_mag_f32(bufor_wyjsciowy_napiecia, bufor_wyjsciowy_napiecia_mag, 512);
+			  arm_cmplx_mag_f32(bufor_wyjsciowy_napiecia, bufor_wyjsciowy_napiecia_mag, ilosc_probek);
 
-			  arm_max_f32(bufor_wyjsciowy_napiecia_mag, 512, &maxvalue4, &maxvalueindex4);
+			  arm_max_f32(bufor_wyjsciowy_napiecia_mag, ilosc_probek, &maxvalue4, &maxvalueindex4);
 
 
-			  for(int i=0; i<512; ++i){
+			  for(int i=0; i<ilosc_probek; ++i){
 			  	bufor_wyjsciowy_napiecia_mag[i] = 100*bufor_wyjsciowy_napiecia_mag[i]/maxvalue4;
 			  }
 
 			  wyslij = 1;
-			}
-
+			  wykonywanie_fft=0;
 
 			j=0;
 		}
@@ -804,6 +999,25 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // ogolna funkcja ob
 		tachometr(); // pomiar predkosci obrotowej
 		odczyt_wartosci_anlg(); //odczytywanie wartosci analogowej z czujnika prędkości i zamiana na stan niski lub wysoki
 		pomiar_temperatury();// pomiar temperatury silnika
+		}
+/*
+		if(start==5)
+		{
+			odbior_danych();
+			pomiar_pradu();
+			pomiar_napiecia();
+			przeliczanie_akcelerometru();
+			tachometr(); // pomiar predkosci obrotowej
+			odczyt_wartosci_anlg(); //odczytywanie wartosci analogowej z czujnika prędkości i zamiana na stan niski lub wysoki
+			pomiar_temperatury();// pomiar temperatury silnika
+
+			czas_probki=czas_probki;
+		    sprintf(wiadomosc2, "%0.2f %0.2f %d %0.2f %d %0.4f %0.4f %0.4f %d       ", prad_fft,napiecie_fft,rpm,temp_chw,ciag,Ax,Ay,Az,czas_probki);
+			serverUDPSendString(wiadomosc2);
+			czas_probki=0;
+
+
+		}*/
 
 	}
 
