@@ -167,28 +167,28 @@ void SystemClock_Config(void);
 void adxl_zapisz (uint8_t adres, uint8_t wartosc)
 {
 	uint8_t data[2];
-	data[0] = adres|0x40;  // multibyte write
+	data[0] = adres|0x40;  // zapis wielobajtowy
 	data[1] = wartosc;
-	HAL_GPIO_WritePin (CS_GPIO_Port, CS_Pin, GPIO_PIN_RESET);  // pull the cs pin low
-	HAL_SPI_Transmit (&hspi2, data, 2, 100);  // write data to register
-	HAL_GPIO_WritePin (CS_GPIO_Port, CS_Pin, GPIO_PIN_SET);  // pull the cs pin high
+	HAL_GPIO_WritePin (CS_GPIO_Port, CS_Pin, GPIO_PIN_RESET);  // ustawienie pinu CS w stan niski
+	HAL_SPI_Transmit (&hspi2, data, 2, 100);  // zapisanie danych do rejestru
+	HAL_GPIO_WritePin (CS_GPIO_Port, CS_Pin, GPIO_PIN_SET);  // ustawienie pinu CS w stan wysoki
 }
 void adxl_odczyt (uint8_t adres)
 {
-	adres |= 0x80;  // read operation
-	adres |= 0x40;  // multibyte read
+	adres |= 0x80;  // operacja odczytu
+	adres |= 0x40;  // odczyt wielobajtowy
 	uint8_t rec;
-	HAL_GPIO_WritePin (CS_GPIO_Port, CS_Pin, GPIO_PIN_RESET);  // pull the pin low
-	HAL_SPI_Transmit (&hspi2, &adres, 1, 100);  // send address
-	HAL_SPI_Receive (&hspi2, dane_odebrane, 6, 100);  // receive 6 bytes data
-	HAL_GPIO_WritePin (CS_GPIO_Port, CS_Pin, GPIO_PIN_SET);  // pull the pin high
+	HAL_GPIO_WritePin (CS_GPIO_Port, CS_Pin, GPIO_PIN_RESET);  // ustawienie pinu CS w stan niski
+	HAL_SPI_Transmit (&hspi2, &adres, 1, 100);  // wysylanie na adres
+	HAL_SPI_Receive (&hspi2, dane_odebrane, 6, 100);  // otrzymanie 6-ciu bajtow danych
+	HAL_GPIO_WritePin (CS_GPIO_Port, CS_Pin, GPIO_PIN_SET);  // ustawienie pinu CS w stan wysoki
 }
 void adxl_inicjalizacja (void)
 {
-	adxl_zapisz (0x31, 0x0B);  // data_format range= +- 16g
-	adxl_zapisz (0x2c, 0x0F);
-	adxl_zapisz (0x2d, 0x00);  // reset all bits
-	adxl_zapisz (0x2d, 0x08);  // power_cntl measure and wake up 8hz
+	adxl_zapisz (0x31, 0x0B);  // zakres pomiarowy = +- 16g na pelnej rodzielczosci 10 bit
+	adxl_zapisz (0x2c, 0x0F);  // usawienie czestotliwosci wysylania danych na poziomie 3200Hz
+	adxl_zapisz (0x2d, 0x00);  // resetowanie rejestru
+	adxl_zapisz (0x2d, 0x08);  // odczyt z czestotliwoscia 8Hz w trybie sleep
 }
 void adxl_odczyt_wartosci()
 {
@@ -250,7 +250,7 @@ void test_silnika_fft()
 	}
 
 
-	   __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1,pwm); // załączenie pwm o zmiennym wypelnieniu inkrementowanym w obsłudze przerwania od timera 16
+	   __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1,pwm); // załączenie pwm o zmiennym wypelnieniu inkrementowanym w obsłudze przerwania od timera 1
 
     if(HAL_GetTick() - poprzedni_czas_belka > belka)  // sprawdzenie czy upłynął już czas belka = 100ms
     {
@@ -301,7 +301,7 @@ void test_silnika() // funkcja automatycznego testu silnika
 	}
 	timer_probkowania=1;
 
-	   __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1,pwm); // załączenie pwm o zmiennym wypelnieniu inkrementowanym w obsłudze przerwania od timera 16
+	   __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1,pwm); // załączenie pwm o zmiennym wypelnieniu inkrementowanym w obsłudze przerwania od timera 1
 
        if(HAL_GetTick() - poprzedni_czas_belka > belka)  // sprawdzenie czy upłynął już czas belka = 100ms
        {
@@ -384,7 +384,7 @@ void akwizycja_danych()
 
 
 
-	   __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1,pwm); // załączenie pwm o zmiennym wypelnieniu inkrementowanym w obsłudze przerwania od timera 16
+	   __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1,pwm); // załączenie pwm o zmiennym wypelnieniu inkrementowanym w obsłudze przerwania od timera 1
 
        if(HAL_GetTick() - poprzedni_czas_belka > belka)  // sprawdzenie czy upłynął już czas belka = 100ms
        {
@@ -468,7 +468,7 @@ void pomiar_pradu()
 {
 	prad_przed = analogowe[0]*3.3f / 4096.0f; //przeliczanie wartości analogowej
 	prad_przed = prad_przed*1000; // zamiana na mV
-	prad_przed = (73.3f*(prad_przed/3300))-35.71f; // zamiana na A wg. wzoru producenta
+	prad_przed = (73.3f*(prad_przed/3300))-36.7f; // zamiana na A wg. wzoru producenta
 	prad_fft = prad_przed;
 	suma_pradow += prad_przed; // sumowanie odczytów
 	pomiary_pradu++; // inkrementacja licznika ilości odczytów
@@ -565,37 +565,32 @@ void stop()
 void predkosc_zadana()
 {
 	int a,b;
-	a=buffer[2];
-	b=buffer[3];
-	a=a-48;
-	b=b-48;
-	procent = (a*10)+b;
-	nastawa = (procent * 5)+500;
-
+	a=buffer[2]; //odczytanie zmiennej z bufora
+	b=buffer[3]; //odczytanie zmiennej z bufora
+	a=a-48; //zmiana z ascii na char
+	b=b-48; //zmiana z ascii na char
+	procent = (a*10)+b; //zamiana na wartosc procentowa
+	nastawa = (procent * 5)+500; // przeskalowanie zmiennej dla wypelnienia pwm
 }
 
 void czas_zadany()
 {
 	int c,d;
-	c=buffer[5];
-	d=buffer[6];
-	c=c-48;
-	d=d-48;
-	czas_testu = ((c*10)+d)*10;
-
-
+	c=buffer[5]; //odczytanie zmiennej z bufora
+	d=buffer[6]; //odczytanie zmiennej z bufora
+	c=c-48; //zmiana z ascii na char
+	d=d-48; //zmiana z ascii na char
+	czas_testu = ((c*10)+d)*10; //obliczenie czasu testu w s
 }
 
 void rampa_zadana()
 {
 	int e,f;
-	e=buffer[8];
-	f=buffer[9];
-	e=e-48;
-	f=f-48;
-	rampa = (e*10)+f;
-
-
+	e=buffer[8]; //odczytanie zmiennej z bufora
+	f=buffer[9]; //odczytanie zmiennej z bufora
+	e=e-48; //zmiana z ascii na char
+	f=f-48; //zmiana z ascii na char
+	rampa = (e*10)+f; //obliczanie rampy (stopnia inkrementu o ktory ma byc zwiekszane wypelnienie pwm)
 }
 
 void rozmiar_fft()
@@ -1002,56 +997,56 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
-  {
-	  do {                        // pętla wykonująca sie raz aby zainicjalizowac silnik
+   {
+ 	  do {                        // petla wykonujaca sie raz aby zainicjalizowac silnik
 
-		  inicjalizacja_silnika(); //funkcja inicjalizacji silnika
-		  inicjalizacja = 1;
+ 		  inicjalizacja_silnika(); //funkcja inicjalizacji silnika
+ 		  inicjalizacja = 1;
 
-	  }
-	  while(inicjalizacja ==0);
+ 	  }
+ 	  while(inicjalizacja ==0);
 
-	  adxl_odczyt_wartosci();
-	  odbior_danych();
-
-
-	  if(start==0)
-	 	{
-		  stop();
-	 	}
+ 	  adxl_odczyt_wartosci(); //odczyt z akcelerometru
+ 	  odbior_danych(); //sprawdzenie odebranych danych
 
 
-	  if(start==1)    //sprawdzenie czy bit startu jest = 1
-	  {
-		  test_silnika(); //funkcja testu automatycznego silnika
-	  }
+ 	  if(start==0)
+ 	 	{
+ 		  stop(); //zatrzymanie silnika
+ 	 	}
 
 
-	  if(start==2)    //sprawdzenie czy bit startu jest = 2
-	  {
-		  test_polaczenia(); //funkcja testu automatycznego silnika
-	  }
+ 	  if(start==1)
+ 	  {
+ 		  test_silnika(); //funkcja testu automatycznego silnika
+ 	  }
 
 
-	  if(start==3)    //sprawdzenie czy bit startu jest = 3
-	  {
-		  tryb_reczny(); //funkcja reczna załączania silnika
-	  }
+ 	  if(start==2)
+ 	  {
+ 		  test_polaczenia(); //funkcja testu automatycznego silnika
+ 	  }
 
 
-	  if(start==4)
-	  {
-		  test_silnika_fft();
+ 	  if(start==3)
+ 	  {
+ 		  tryb_reczny(); //funkcja reczna załączania silnika
+ 	  }
 
 
-	  }
-
-	  if(start==5)
-	  {
-		  akwizycja_danych();
+ 	  if(start==4)
+ 	  {
+ 		  test_silnika_fft(); //funkcja analizy fft sygnalow
 
 
-	  }
+ 	  }
+
+ 	  if(start==5)
+ 	  {
+ 		  akwizycja_danych(); //funkcja akwizycji danych
+
+
+ 	  }
 
     /* USER CODE END WHILE */
 
@@ -1121,7 +1116,7 @@ void SystemClock_Config(void)
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // ogolna funkcja obslugi przerwań
 {
 
-	if(htim->Instance == TIM3) //sprawdzenie czy przerwanie pochodzi od timera 16
+	if(htim->Instance == TIM3) //sprawdzenie czy przerwanie pochodzi od timera 3
 	{
 
 		odmierzanie_czasu_testu();
@@ -1241,7 +1236,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // ogolna funkcja ob
 	if(licznik_samplowania==4)
 	{
 
-	if(htim->Instance == TIM14) //sprawdzenie czy przerwanie pochodzi od timera 2
+	if(htim->Instance == TIM14) //sprawdzenie czy przerwanie pochodzi od timera 14
 	{
 
 		probkowanie();
@@ -1252,7 +1247,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // ogolna funkcja ob
 	if(licznik_samplowania==6)
 	{
 
-	if(htim->Instance == TIM13) //sprawdzenie czy przerwanie pochodzi od timera 2
+	if(htim->Instance == TIM13) //sprawdzenie czy przerwanie pochodzi od timera 13
 	{
 
 		probkowanie();
@@ -1263,7 +1258,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // ogolna funkcja ob
 	if(licznik_samplowania==8)
 	{
 
-	if(htim->Instance == TIM6) //sprawdzenie czy przerwanie pochodzi od timera 2
+	if(htim->Instance == TIM6) //sprawdzenie czy przerwanie pochodzi od timera 6
 	{
 
 		probkowanie();
@@ -1274,7 +1269,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) // ogolna funkcja ob
 	if(licznik_samplowania==12)
 	{
 
-	if(htim->Instance == TIM5) //sprawdzenie czy przerwanie pochodzi od timera 2
+	if(htim->Instance == TIM5) //sprawdzenie czy przerwanie pochodzi od timera 5
 	{
 
 		probkowanie();

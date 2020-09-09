@@ -7,9 +7,10 @@
 #include "hx711.h"
 
 int HX711_odczyt(HX711* wskaznik) {
-	int licz = 0;
+	int licz = 0; // zerowanie licznika
 	_Bool negatyw = 0;
-	HAL_GPIO_WritePin(wskaznik->SCK_PORT, wskaznik->SCK_numer_pinu, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(wskaznik->SCK_PORT, wskaznik->SCK_numer_pinu, GPIO_PIN_RESET); //ustawienie pinu SCK w stan niski - rozpoczecie transmisji hx711 -> stm32
+    /* ---odbieranie 24-bitowej wartosci pomiaru---*/
 	while (HAL_GPIO_ReadPin(wskaznik->DATA_PORT, wskaznik->DATA_numer_pinu)) {
 
 	}
